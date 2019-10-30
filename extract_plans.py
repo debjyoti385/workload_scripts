@@ -82,7 +82,7 @@ def main(args):
     for plan in extract_plans(args):
         json_plan = parse(plan)
         if json_plan:
-            print(json_plan)
+            print(plan)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EXTRACT PLANS ',
