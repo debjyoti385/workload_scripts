@@ -153,7 +153,7 @@ cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> ../
 echo "#######################################################################"
 echo "COLLECTING DATA EVERY 5 MINS "
 echo "#######################################################################"
-sudo apt-get install python-pip 
+sudo apt-get install python-pip -y > /dev/null 2>&1
 pip install argparse
 sleep 300
 COUNTER=1
