@@ -150,17 +150,17 @@ echo "EXECUTING TPCH QUERIES "
 echo "#######################################################################"
 cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> ../install.log 2>&1 & disown 
 
-echo "#######################################################################"
-echo "COLLECTING DATA EVERY 5 MINS "
-echo "#######################################################################"
 sudo apt-get install python-pip -y > /dev/null 2>&1
 pip install argparse
-sleep 300
 COUNTER=1
 MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
 PROC=`nproc`
 TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
 FILENAME="${TIER}_${PROC}_${MEMORY}_TPCH.json"
+echo "#######################################################################"
+echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
+echo "#######################################################################"
+sleep 300
 while :
 do
 	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
