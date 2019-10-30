@@ -159,6 +159,7 @@ TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
 FILENAME="${TIER}_${PROC}_${MEMORY}_TPCH.json"
 echo "#######################################################################"
 echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
+echo "PRESS [CTRL+C] to stop.."
 echo "#######################################################################"
 sleep 300
 while :
@@ -167,6 +168,5 @@ do
 	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
 	echo -e "\e[0K\r UPLOAD: $COUNTER"
 	let COUNTER=COUNTER+1
-	echo "Press [CTRL+C] to stop.."
 	sleep 300
 done
