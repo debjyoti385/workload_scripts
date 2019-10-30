@@ -166,7 +166,7 @@ while :
 do
 	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
 	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
-	echo -e "\e[0K\r UPLOAD: $COUNTER"
+    echo -ne "UPLOAD: $COUNTER"\\r
 	let COUNTER=COUNTER+1
 	sleep 300
 done
