@@ -2,6 +2,7 @@
 PG_DATA_DIR="`pwd`/data/postgres_data";
 TPCH_DATA_DIR="`pwd`/data/tpch_data";
 TPCDS_DATA_DIR="`pwd`/data/tpcds_data";
+LOGFILE="`pwd`/install.log";
 BENCHMARK="TPCH";
 SF=1
 
@@ -56,10 +57,10 @@ done
 
 echo "#######################################################################"
 echo "UPGRADING PACKAGES"
-echo "LOGFILE: install.log"
+echo "LOGFILE: $LOGFILE"
 echo "#######################################################################"
 sudo apt-get update >> /dev/null 2>&1
-sudo apt-get upgrade -y  >> install.log 2>&1
+sudo apt-get upgrade -y  >> $LOGFILE 2>&1
 
 mkdir -p $PG_DATA_DIR
 mkdir -p $TPCH_DATA_DIR
@@ -71,13 +72,13 @@ echo "#######################################################################"
 sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt `lsb_release -c -s`-pgdg main" >> /etc/apt/sources.list'
 wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | sudo apt-key add -
 sudo apt-get update >> /dev/null 2>&1
-sudo apt-get install postgresql-10 postgresql-contrib-10 -y >> install.log 2>&1
+sudo apt-get install postgresql-10 postgresql-contrib-10 -y >> $LOGFILE 2>&1
 
 echo "CHANGING POSTGRESQL default DATA DIRECTORY TO $PG_DATA_DIR"
 sudo systemctl stop postgresql
 sleep 5
 if [ ! -d "$PG_DATA_DIR/10/main" ]; then
-    sudo rsync -av /var/lib/postgresql/ $PG_DATA_DIR >> install.log 2>&1
+    sudo rsync -av /var/lib/postgresql/ $PG_DATA_DIR >> $LOGFILE 2>&1
 fi
 if [ -d "/var/lib/postgresql/10/main" ]; then
     echo "BACK UP OLD DATA DIR"
@@ -101,23 +102,23 @@ sudo systemctl start postgresql
 echo "#######################################################################"
 echo "INSTALLING PostGIS"
 echo "#######################################################################"
-sudo apt update >> install.log 2>&1
-sudo apt install postgresql-10-postgis-2.4 -y >> install.log 2>&1 
-sudo apt install postgresql-10-postgis-scripts -y >> install.log 2>&1
-sudo apt install postgis -y >> install.log 2>&1
-sudo apt install postgresql-10-pgrouting -y >> install.log 2>&1
-sudo -u postgres psql -f postgis_install.sql >> install.log 2>&1
+sudo apt update >> $LOGFILE 2>&1
+sudo apt install postgresql-10-postgis-2.4 -y >> $LOGFILE 2>&1 
+sudo apt install postgresql-10-postgis-scripts -y >> $LOGFILE 2>&1
+sudo apt install postgis -y >> $LOGFILE 2>&1
+sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
+sudo -u postgres psql -f postgis_install.sql >> $LOGFILE 2>&1
 
 echo "#######################################################################"
 echo "INSTALLING JAVA AND OLTPBENCH"
 echo "#######################################################################"
-sudo apt-get update >> install.log 2>&1
-sudo apt-get install software-properties-common python-software-properties -y  >> install.log 2>&1
-sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> install.log 2>&1 
+sudo apt-get update >> $LOGFILE 2>&1
+sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
+sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1 
 echo "CLONING OLTPBENCH GIT REPOSITORY"
-git clone https://github.com/oltpbenchmark/oltpbench.git >> install.log 2>&1
+git clone https://github.com/oltpbenchmark/oltpbench.git >> $LOGFILE 2>&1
 echo "COMPILING oltpbench"
-cd oltpbench &&  ant bootstrap >> install.log 2>&1 && ant resolve >> install.log 2>&1 && ant build >> install.log 2>&1 && cd -  
+cd oltpbench &&  ant bootstrap >> $LOGFILE 2>&1 && ant resolve >> $LOGFILE 2>&1 && ant build >> $LOGFILE 2>&1 && cd -  
 
 
 ###########################################################
@@ -129,16 +130,16 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     echo "GENERATING TPC-H DATA"
     echo "#######################################################################"
-    git clone https://github.com/electrum/tpch-dbgen $TPCH_DATA_DIR/dbgen >> install.log 2>&1
+    git clone https://github.com/electrum/tpch-dbgen $TPCH_DATA_DIR/dbgen >> $LOGFILE 2>&1
     echo "COMPILING DATA GENERATION CODE"
-    sudo apt-get install build-essential -y >> install.log  2>&1 
-    cd $TPCH_DATA_DIR/dbgen && make >> install.log 2>&1 && cd -  
+    sudo apt-get install build-essential -y >> $LOGFILE  2>&1 
+    cd $TPCH_DATA_DIR/dbgen && make >> $LOGFILE 2>&1 && cd -  
     echo "#######################################################################"
     echo "GENERATING TPC-H DATA WITH SCALE FACTOR "$SF [Takes time, Keep Patience]
-    echo "check install.log for details"
+    echo "check $LOGFILE for details"
     echo "#######################################################################"
     mkdir -p $TPCH_DATA_DIR/raw/$SF
-    cd $TPCH_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> install.log 2>&1  && cd - 
+    cd $TPCH_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> $LOGFILE 2>&1  && cd - 
     echo "STORING DATA AT LOCATION: " $TPCH_DATA_DIR/raw/$SF/
     mv $TPCH_DATA_DIR/dbgen/*.tbl* $TPCH_DATA_DIR/raw/$SF/
     TPCH_RAW_DATA=$TPCH_DATA_DIR/raw/$SF
@@ -146,7 +147,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     echo "LOAD DATA IN DATABASE WITH oltpbenchmark"
     echo "#######################################################################"
-    sudo -u postgres psql -f tpch_install.sql >> install.log 2>&1
+    sudo -u postgres psql -f tpch_install.sql >> $LOGFILE 2>&1
     sudo sed -i 's,'"TPCH_RAW_DATA"','"$TPCH_RAW_DATA"',' tpch_config.xml
     sudo sed -i 's,'"USERNAME"','"tpch"',' tpch_config.xml
     sudo sed -i 's,'"PASSWORD"','"tpch"',' tpch_config.xml
@@ -155,7 +156,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     echo "LOAD COMPLETE IN DATABASE tpch, CREATING INDEXES"
     echo "#######################################################################"
-    sudo -u postgres psql -f tpch_index.sql >> install.log 2>&1
+    sudo -u postgres psql -f tpch_index.sql >> $LOGFILE 2>&1
     echo "RECONFIGURING postgres FOR STATS"
     echo "#######################################################################"
     sudo systemctl stop postgresql
@@ -166,7 +167,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     echo "EXECUTING TPCH QUERIES "
     echo "#######################################################################"
-    cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> ../install.log 2>&1 & disown 
+    cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> $LOGFILE 2>&1 & disown 
     
     sudo apt-get install python-pip -y > /dev/null 2>&1
     pip install argparse
@@ -183,7 +184,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     while :
     do
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
+        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
         echo -ne "UPLOAD: $COUNTER"\\r
         let COUNTER=COUNTER+1
         sleep 300
@@ -194,15 +195,15 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "#######################################################################"
     echo "INSTALLING PREREQUISITES FOR TPC-DS BENCHMARK"
     echo "#######################################################################"
-    sudo apt-get install gcc make flex bison git  -y  >> install.log 2>&1 
-    git clone https://github.com/gregrahn/tpcds-kit.git >> install.log 2>&1
-    cd tpcds-kit/tools && make OS=LINUX >> install.log 2>&1 && cd -
+    sudo apt-get install gcc make flex bison git  -y  >> $LOGFILE 2>&1 
+    git clone https://github.com/gregrahn/tpcds-kit.git >> $LOGFILE 2>&1
+    cd tpcds-kit/tools && make OS=LINUX >> $LOGFILE 2>&1 && cd -
 
     echo "#######################################################################"
     echo "CREATING DATABASE tpcds_db"
     echo "#######################################################################"
-    sudo -u postgres psql -f tpcds_install.sql >> install.log 2>&1  
-    sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> install.log 2>&1  
+    sudo -u postgres psql -f tpcds_install.sql >> $LOGFILE 2>&1  
+    sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> $LOGFILE 2>&1  
      
     echo "#######################################################################"
     echo "GENERATING TPC-DS DATA"
@@ -252,10 +253,10 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     while :
     do
         cd tpcds-kit/tools
-        ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> install.log 2>&1 
-        sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> install.log 2>&1 
+        ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> $LOGFILE 2>&1 
+        sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1 
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
+        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
         echo -ne "BATCH: $COUNTER"\\r
         let COUNTER=COUNTER+1
         cd - > /dev/null 2>&1
