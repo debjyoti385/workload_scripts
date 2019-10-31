@@ -3,7 +3,7 @@ PG_DATA_DIR="`pwd`/data/postgres_data";
 TPCH_DATA_DIR="`pwd`/data/tpch_data";
 TPCDS_DATA_DIR="`pwd`/data/tpcds_data";
 BENCHMARK="TPCH";
-SF=5
+SF=1
 
 
 function usage()
@@ -59,7 +59,7 @@ echo "UPGRADING PACKAGES"
 echo "LOGFILE: install.log"
 echo "#######################################################################"
 sudo apt-get update >> /dev/null 2>&1
-sudo apt-get upgrade >> install.log 2>&1
+sudo apt-get upgrade -y  >> install.log 2>&1
 
 mkdir -p $PG_DATA_DIR
 mkdir -p $TPCH_DATA_DIR
@@ -196,7 +196,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "#######################################################################"
 	sudo apt-get install gcc make flex bison git  -y  >> install.log 2>&1 
 	git clone https://github.com/gregrahn/tpcds-kit.git >> install.log 2>&1
-    cd tpcds-kit/tools && make OS=LINUX && cd - >> install.log 2>&1
+    cd tpcds-kit/tools && make OS=LINUX >> install.log 2>&1 && cd -
 
 	echo "#######################################################################"
     echo "CREATING DATABASE tpcds_db"
@@ -235,7 +235,14 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     PROC=`nproc`
     TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS.json"
-
+    
+    echo "RECONFIGURING postgres FOR STATS"
+    echo "#######################################################################"
+    sudo systemctl stop postgresql
+    sleep 5
+    sudo cp postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
+    sudo systemctl start postgresql
+    sleep 5
     echo "#######################################################################"
     echo "RUNNING TPC-DS AND COLLECTING DATA AFTER EVERY BATCH RUN IN $FILENAME"
     echo "PRESS [CTRL+C] to stop.."
