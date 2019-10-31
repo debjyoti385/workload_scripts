@@ -238,6 +238,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS.json"
     
+    sudo -u postgres psql tpcds_db -f tpcds_index.sql >> $LOGFILE 2>&1
     echo "RECONFIGURING postgres FOR STATS"
     echo "#######################################################################"
     sudo systemctl stop postgresql
