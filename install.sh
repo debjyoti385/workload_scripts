@@ -211,6 +211,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
 	TPCDS_RAW=${TPCDS_DATA_DIR}/raw
     mkdir -p $TPCDS_RAW
     ./dsdgen -SCALE $SF -FORCE -VERBOSE -DIR ${TPCDS_DATA_DIR}/raw
+    cd -
 
     echo "#######################################################################"
     echo "LOADING TPC-DS DATA"
@@ -250,12 +251,14 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
 
 	while :
     do
+        cd tpcds-kit/tools
 		./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> install.log 2>&1 
 		sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> install.log 2>&1 
     	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
     	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
         echo -ne "BATCH: $COUNTER"\\r
     	let COUNTER=COUNTER+1
+        cd - > /dev/null 2>&1
     	sleep 2
     done
 fi
