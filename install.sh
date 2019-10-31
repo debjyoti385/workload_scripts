@@ -176,7 +176,8 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
     TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
-    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH.json"
+    INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH_${INS_ID}.json"
     echo "#######################################################################"
     echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
     echo "PRESS [CTRL+C] to stop.."
