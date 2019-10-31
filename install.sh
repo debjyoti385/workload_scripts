@@ -125,7 +125,7 @@ cd oltpbench &&  ant bootstrap >> install.log 2>&1 && ant resolve >> install.log
 ###########################################################
 
 if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then 
-	
+    
     echo "#######################################################################"
     echo "GENERATING TPC-H DATA"
     echo "#######################################################################"
@@ -182,23 +182,23 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     sleep 300
     while :
     do
-    	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-    	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
+        sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
         echo -ne "UPLOAD: $COUNTER"\\r
-    	let COUNTER=COUNTER+1
-    	sleep 300
+        let COUNTER=COUNTER+1
+        sleep 300
     done
     
 elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then 
 
-	echo "#######################################################################"
+    echo "#######################################################################"
     echo "INSTALLING PREREQUISITES FOR TPC-DS BENCHMARK"
     echo "#######################################################################"
-	sudo apt-get install gcc make flex bison git  -y  >> install.log 2>&1 
-	git clone https://github.com/gregrahn/tpcds-kit.git >> install.log 2>&1
+    sudo apt-get install gcc make flex bison git  -y  >> install.log 2>&1 
+    git clone https://github.com/gregrahn/tpcds-kit.git >> install.log 2>&1
     cd tpcds-kit/tools && make OS=LINUX >> install.log 2>&1 && cd -
 
-	echo "#######################################################################"
+    echo "#######################################################################"
     echo "CREATING DATABASE tpcds_db"
     echo "#######################################################################"
     sudo -u postgres psql -f tpcds_install.sql >> install.log 2>&1  
@@ -208,7 +208,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "GENERATING TPC-DS DATA"
     echo "#######################################################################"
     cd tpcds-kit/tools 
-	TPCDS_RAW=${TPCDS_DATA_DIR}/raw
+    TPCDS_RAW=${TPCDS_DATA_DIR}/raw
     mkdir -p $TPCDS_RAW
     ./dsdgen -SCALE $SF -FORCE -VERBOSE -DIR ${TPCDS_DATA_DIR}/raw
     cd -
@@ -217,17 +217,17 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "LOADING TPC-DS DATA"
     echo "#######################################################################"
 
-	cd $TPCDS_RAW 
-	for i in `ls *.dat`; do
+    cd $TPCDS_RAW 
+    for i in `ls *.dat`; do
         table=${i/.dat/}
         echo "Loading $table..."
         sed 's/|$//' $i > /tmp/$i
         sudo -u postgres psql tpcds_db -q -c "TRUNCATE $table"
         sudo -u postgres psql tpcds_db -c "\\copy $table FROM '/tmp/$i' CSV DELIMITER '|'"
     done
-	cd -
-	TPCDS_QUERIES=${TPCDS_DATA_DIR}/queries
-	mkdir -p $TPCDS_QUERIES
+    cd -
+    TPCDS_QUERIES=${TPCDS_DATA_DIR}/queries
+    mkdir -p $TPCDS_QUERIES
 
     sudo apt-get install python-pip -y > /dev/null 2>&1
     pip install argparse
@@ -249,17 +249,17 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "PRESS [CTRL+C] to stop.."
     echo "#######################################################################"
 
-	while :
+    while :
     do
         cd tpcds-kit/tools
-		./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> install.log 2>&1 
-		sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> install.log 2>&1 
-    	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-    	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
+        ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> install.log 2>&1 
+        sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> install.log 2>&1 
+        sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
         echo -ne "BATCH: $COUNTER"\\r
-    	let COUNTER=COUNTER+1
+        let COUNTER=COUNTER+1
         cd - > /dev/null 2>&1
-    	sleep 2
+        sleep 2
     done
 fi
 
