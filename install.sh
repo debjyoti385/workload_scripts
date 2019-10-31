@@ -1,7 +1,9 @@
 #!/bin/bash
 PG_DATA_DIR="`pwd`/data/postgres_data";
 TPCH_DATA_DIR="`pwd`/data/tpch_data";
-SF=1
+TPCDS_DATA_DIR="`pwd`/data/tpcds_data";
+BENCHMARK="TPCH";
+SF=5
 
 
 function usage()
@@ -12,6 +14,8 @@ function usage()
     echo -e "\t-h --help"
     echo -e "\t--pgdata=$PG_DATA_DIR"
     echo -e "\t--tpchdata=$TPCH_DATA_DIR"
+    echo -e "\t--tpcdsdata=$TPCDS_DATA_DIR"
+    echo -e "\t--bench=$TPCDS_DATA_DIR"
     echo -e "\t--sf=$SF"
     echo -e ""
 }
@@ -29,6 +33,12 @@ while [ "$1" != "" ]; do
             ;;
         --tpchdata)
             TPCH_DATA_DIR=$VALUE
+            ;;
+        --tpcdsdata)
+            TPCDS_DATA_DIR=$VALUE
+            ;;
+        -b | --bench)
+            BENCHMARK=$VALUE
             ;;
         --sf)
             SF=$VALUE
@@ -48,11 +58,12 @@ echo "#######################################################################"
 echo "UPGRADING PACKAGES"
 echo "LOGFILE: install.log"
 echo "#######################################################################"
-
+sudo apt-get update >> /dev/null 2>&1
 sudo apt-get upgrade >> install.log 2>&1
 
 mkdir -p $PG_DATA_DIR
 mkdir -p $TPCH_DATA_DIR
+mkdir -p $TPCDS_DATA_DIR
 
 echo "#######################################################################"
 echo "Install PostgreSQL 10"
@@ -108,65 +119,139 @@ git clone https://github.com/oltpbenchmark/oltpbench.git >> install.log 2>&1
 echo "COMPILING oltpbench"
 cd oltpbench &&  ant bootstrap >> install.log 2>&1 && ant resolve >> install.log 2>&1 && ant build >> install.log 2>&1 && cd -  
 
-echo "#######################################################################"
-echo "GENERATING TPC-H DATA"
-echo "#######################################################################"
-git clone https://github.com/electrum/tpch-dbgen $TPCH_DATA_DIR/dbgen >> install.log 2>&1
-echo "COMPILING DATA GENERATION CODE"
-sudo apt-get install build-essential -y >> install.log  2>&1 
-cd $TPCH_DATA_DIR/dbgen && make >> install.log 2>&1 && cd -  
-echo "#######################################################################"
-echo "GENERATING TPC-H DATA WITH SCALE FACTOR "$SF [Takes time, Keep Patience]
-echo "check install.log for details"
-echo "#######################################################################"
-mkdir -p $TPCH_DATA_DIR/raw/$SF
-cd $TPCH_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> install.log 2>&1  && cd - 
-echo "STORING DATA AT LOCATION: " $TPCH_DATA_DIR/raw/$SF/
-mv $TPCH_DATA_DIR/dbgen/*.tbl* $TPCH_DATA_DIR/raw/$SF/
-TPCH_RAW_DATA=$TPCH_DATA_DIR/raw/$SF
 
-echo "#######################################################################"
-echo "LOAD DATA IN DATABASE WITH oltpbenchmark"
-echo "#######################################################################"
-sudo -u postgres psql -f tpch_install.sql >> install.log 2>&1
-sudo sed -i 's,'"TPCH_RAW_DATA"','"$TPCH_RAW_DATA"',' tpch_config.xml
-sudo sed -i 's,'"USERNAME"','"tpch"',' tpch_config.xml
-sudo sed -i 's,'"PASSWORD"','"tpch"',' tpch_config.xml
-cp tpch_config.xml oltpbench/
-cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd - 
-echo "#######################################################################"
-echo "LOAD COMPLETE IN DATABASE tpch, CREATING INDEXES"
-echo "#######################################################################"
-sudo -u postgres psql -f tpch_index.sql >> install.log 2>&1
-echo "RECONFIGURING postgres FOR STATS"
-echo "#######################################################################"
-sudo systemctl stop postgresql
-sleep 5
-sudo cp postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
-sudo systemctl start postgresql
-sleep 5
-echo "#######################################################################"
-echo "EXECUTING TPCH QUERIES "
-echo "#######################################################################"
-cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> ../install.log 2>&1 & disown 
+###########################################################
+####   TPCH BENCHMARK 
+###########################################################
 
-sudo apt-get install python-pip -y > /dev/null 2>&1
-pip install argparse
-COUNTER=1
-MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
-PROC=`nproc`
-TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
-FILENAME="${TIER}_${PROC}_${MEMORY}_TPCH.json"
-echo "#######################################################################"
-echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
-echo "PRESS [CTRL+C] to stop.."
-echo "#######################################################################"
-sleep 300
-while :
-do
-	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
-    echo -ne "UPLOAD: $COUNTER"\\r
-	let COUNTER=COUNTER+1
-	sleep 300
-done
+if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then 
+	
+    echo "#######################################################################"
+    echo "GENERATING TPC-H DATA"
+    echo "#######################################################################"
+    git clone https://github.com/electrum/tpch-dbgen $TPCH_DATA_DIR/dbgen >> install.log 2>&1
+    echo "COMPILING DATA GENERATION CODE"
+    sudo apt-get install build-essential -y >> install.log  2>&1 
+    cd $TPCH_DATA_DIR/dbgen && make >> install.log 2>&1 && cd -  
+    echo "#######################################################################"
+    echo "GENERATING TPC-H DATA WITH SCALE FACTOR "$SF [Takes time, Keep Patience]
+    echo "check install.log for details"
+    echo "#######################################################################"
+    mkdir -p $TPCH_DATA_DIR/raw/$SF
+    cd $TPCH_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> install.log 2>&1  && cd - 
+    echo "STORING DATA AT LOCATION: " $TPCH_DATA_DIR/raw/$SF/
+    mv $TPCH_DATA_DIR/dbgen/*.tbl* $TPCH_DATA_DIR/raw/$SF/
+    TPCH_RAW_DATA=$TPCH_DATA_DIR/raw/$SF
+    
+    echo "#######################################################################"
+    echo "LOAD DATA IN DATABASE WITH oltpbenchmark"
+    echo "#######################################################################"
+    sudo -u postgres psql -f tpch_install.sql >> install.log 2>&1
+    sudo sed -i 's,'"TPCH_RAW_DATA"','"$TPCH_RAW_DATA"',' tpch_config.xml
+    sudo sed -i 's,'"USERNAME"','"tpch"',' tpch_config.xml
+    sudo sed -i 's,'"PASSWORD"','"tpch"',' tpch_config.xml
+    cp tpch_config.xml oltpbench/
+    cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd - 
+    echo "#######################################################################"
+    echo "LOAD COMPLETE IN DATABASE tpch, CREATING INDEXES"
+    echo "#######################################################################"
+    sudo -u postgres psql -f tpch_index.sql >> install.log 2>&1
+    echo "RECONFIGURING postgres FOR STATS"
+    echo "#######################################################################"
+    sudo systemctl stop postgresql
+    sleep 5
+    sudo cp postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
+    sudo systemctl start postgresql
+    sleep 5
+    echo "#######################################################################"
+    echo "EXECUTING TPCH QUERIES "
+    echo "#######################################################################"
+    cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> ../install.log 2>&1 & disown 
+    
+    sudo apt-get install python-pip -y > /dev/null 2>&1
+    pip install argparse
+    COUNTER=1
+    MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
+    PROC=`nproc`
+    TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH.json"
+    echo "#######################################################################"
+    echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
+    echo "PRESS [CTRL+C] to stop.."
+    echo "#######################################################################"
+    sleep 300
+    while :
+    do
+    	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+    	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
+        echo -ne "UPLOAD: $COUNTER"\\r
+    	let COUNTER=COUNTER+1
+    	sleep 300
+    done
+    
+elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then 
+
+	echo "#######################################################################"
+    echo "INSTALLING PREREQUISITES FOR TPC-DS BENCHMARK"
+    echo "#######################################################################"
+	sudo apt-get install gcc make flex bison git  -y  >> install.log 2>&1 
+	git clone https://github.com/gregrahn/tpcds-kit.git >> install.log 2>&1
+    cd tpcds-kit/tools && make OS=LINUX && cd - >> install.log 2>&1
+
+	echo "#######################################################################"
+    echo "CREATING DATABASE tpcds_db"
+    echo "#######################################################################"
+    sudo -u postgres psql -f tpcds_install.sql >> install.log 2>&1  
+    sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> install.log 2>&1  
+     
+    echo "#######################################################################"
+    echo "GENERATING TPC-DS DATA"
+    echo "#######################################################################"
+    cd tpcds-kit/tools 
+	TPCDS_RAW=${TPCDS_DATA_DIR}/raw
+    mkdir -p $TPCDS_RAW
+    ./dsdgen -SCALE $SF -FORCE -VERBOSE -DIR ${TPCDS_DATA_DIR}/raw
+
+    echo "#######################################################################"
+    echo "LOADING TPC-DS DATA"
+    echo "#######################################################################"
+
+	cd $TPCDS_RAW 
+	for i in `ls *.dat`; do
+        table=${i/.dat/}
+        echo "Loading $table..."
+        sed 's/|$//' $i > /tmp/$i
+        sudo -u postgres psql tpcds_db -q -c "TRUNCATE $table"
+        sudo -u postgres psql tpcds_db -c "\\copy $table FROM '/tmp/$i' CSV DELIMITER '|'"
+    done
+	cd -
+	TPCDS_QUERIES=${TPCDS_DATA_DIR}/queries
+	mkdir -p $TPCDS_QUERIES
+
+    sudo apt-get install python-pip -y > /dev/null 2>&1
+    pip install argparse
+    COUNTER=1
+    MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
+    PROC=`nproc`
+    TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS.json"
+
+    echo "#######################################################################"
+    echo "RUNNING TPC-DS AND COLLECTING DATA AFTER EVERY BATCH RUN IN $FILENAME"
+    echo "PRESS [CTRL+C] to stop.."
+    echo "#######################################################################"
+
+	while :
+    do
+		./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> install.log 2>&1 
+		sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> install.log 2>&1 
+    	sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+    	curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> install.log 2>&1
+        echo -ne "BATCH: $COUNTER"\\r
+    	let COUNTER=COUNTER+1
+    	sleep 2
+    done
+fi
+
+
+
