@@ -109,23 +109,24 @@ sudo apt install postgis -y >> $LOGFILE 2>&1
 sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
 sudo -u postgres psql -f postgis_install.sql >> $LOGFILE 2>&1
 
-echo "#######################################################################"
-echo "INSTALLING JAVA AND OLTPBENCH"
-echo "#######################################################################"
-sudo apt-get update >> $LOGFILE 2>&1
-sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
-sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1 
-echo "CLONING OLTPBENCH GIT REPOSITORY"
-git clone https://github.com/oltpbenchmark/oltpbench.git >> $LOGFILE 2>&1
-echo "COMPILING oltpbench"
-cd oltpbench &&  ant bootstrap >> $LOGFILE 2>&1 && ant resolve >> $LOGFILE 2>&1 && ant build >> $LOGFILE 2>&1 && cd -  
-
 
 ###########################################################
 ####   TPCH BENCHMARK 
 ###########################################################
 
 if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then 
+
+    echo "#######################################################################"
+    echo "INSTALLING JAVA AND OLTPBENCH"
+    echo "#######################################################################"
+    sudo apt-get update >> $LOGFILE 2>&1
+    sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
+    sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1 
+    echo "CLONING OLTPBENCH GIT REPOSITORY"
+    git clone https://github.com/oltpbenchmark/oltpbench.git >> $LOGFILE 2>&1
+    echo "COMPILING oltpbench"
+    cd oltpbench &&  ant bootstrap >> $LOGFILE 2>&1 && ant resolve >> $LOGFILE 2>&1 && ant build >> $LOGFILE 2>&1 && cd -  
+
     
     echo "#######################################################################"
     echo "GENERATING TPC-H DATA"
@@ -191,6 +192,10 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     done
     
 elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then 
+        
+###########################################################
+####   TPC-DS BENCHMARK 
+###########################################################
 
     echo "#######################################################################"
     echo "INSTALLING PREREQUISITES FOR TPC-DS BENCHMARK"
@@ -261,7 +266,6 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
         echo -ne "BATCH: $COUNTER"\\r
         let COUNTER=COUNTER+1
-        cd - > /dev/null 2>&1
         sleep 2
     done
 fi
