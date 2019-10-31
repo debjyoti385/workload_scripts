@@ -241,7 +241,8 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
     TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
-    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS.json"
+    INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
     
     sudo -u postgres psql tpcds_db -f tpcds_index.sql >> $LOGFILE 2>&1
     echo "RECONFIGURING postgres FOR STATS"
