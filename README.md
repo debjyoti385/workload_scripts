@@ -21,3 +21,15 @@ rm master.zip
 chmod +x install.sh
 sudo ./install.sh -b=tpcds
 ```
+
+
+## Options
+```
+sudo ./install.sh
+    -h --help
+    --bench=tpch                               # Benchmark: tpch (default), tpcds  
+    --pgdata=/home/ubuntu/data/postgres_data   # PostgreSQL Data Directory (default)
+    --tpchdata=/home/ubuntu/data/tpch_data     # TPC-H Data Directory (default)
+    --tpcdsdata=/home/ubuntu/data/tpcds_data   # TPC-DS Data Directory (default)
+    --sf=1                                     # Scale Factor in GBs (default 1 GB)
+```
