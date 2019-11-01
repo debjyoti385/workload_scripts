@@ -13,10 +13,10 @@ function usage()
     echo -e ""
     echo -e "sudo ./install.sh OR sudo bash install.sh"
     echo -e "\t-h --help"
+    echo -e "\t-b --bench=$BENCHMARK"
     echo -e "\t--pgdata=$PG_DATA_DIR"
     echo -e "\t--tpchdata=$TPCH_DATA_DIR"
     echo -e "\t--tpcdsdata=$TPCDS_DATA_DIR"
-    echo -e "\t--bench=$TPCDS_DATA_DIR"
     echo -e "\t--sf=$SF"
     echo -e ""
 }
