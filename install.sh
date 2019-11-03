@@ -175,8 +175,19 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     COUNTER=1
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
-    TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
-    INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+
+    if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
+        TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+        INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+	elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+        TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
+        INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
+    else
+        TIER="custom"
+        INS_ID="0000"
+    fi
+
+
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH_${INS_ID}.json"
     echo "#######################################################################"
     echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
@@ -243,6 +254,18 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     PROC=`nproc`
     TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
     INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+    
+    if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
+        TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+        INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+	elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+        TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
+        INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
+    else
+        TIER="custom"
+        INS_ID="0000"
+    fi
+
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
     
     sudo -u postgres psql tpcds_db -f tpcds_index.sql >> $LOGFILE 2>&1
