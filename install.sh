@@ -179,7 +179,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
         TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
         INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
-	elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+    elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
         TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
         INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
     else
@@ -258,7 +258,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
         TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
         INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
-	elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+    elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
         TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
         INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
     else
