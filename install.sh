@@ -96,6 +96,7 @@ if [ -f "postgresql.conf" ]; then
     sudo cp postgresql.conf /etc/postgresql/10/main/postgresql.conf
 fi 
 usermod -a -G `id -g -n` postgres
+sudo chown -R  postgres:`id -g -n` $PG_DATA_DIR
 sudo systemctl start postgresql
 
 
