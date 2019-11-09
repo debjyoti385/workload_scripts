@@ -189,10 +189,10 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
         INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
     elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
         TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
-        INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
+        INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id | tail -c4`
     else
         TIER="custom"
-        INS_ID="0000"
+        INS_ID=`openssl rand -base64 3`
     fi
 
 
