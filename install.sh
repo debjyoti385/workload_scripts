@@ -263,8 +263,6 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     COUNTER=1
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
-    TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
-    INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
     
     if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
         TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
@@ -274,7 +272,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
     else
         TIER="custom"
-        INS_ID="0000"
+        INS_ID=`openssl rand -base64 3`
     fi
 
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
