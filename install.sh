@@ -5,7 +5,7 @@ TPCDS_DATA_DIR="`pwd`/data/tpcds_data";
 LOGFILE="`pwd`/install.log";
 BENCHMARK="TPCH";
 SF=1
-
+INSTALL=1
 
 function usage()
 {
@@ -13,11 +13,12 @@ function usage()
     echo -e ""
     echo -e "sudo ./install.sh OR sudo bash install.sh"
     echo -e "\t-h --help"
-    echo -e "\t-b --bench=$BENCHMARK"
-    echo -e "\t--pgdata=$PG_DATA_DIR"
-    echo -e "\t--tpchdata=$TPCH_DATA_DIR"
-    echo -e "\t--tpcdsdata=$TPCDS_DATA_DIR"
-    echo -e "\t--sf=$SF"
+    echo -e "\t-b --bench=$BENCHMARK # tpch/tpds"
+    echo -e "\t--pgdata=$PG_DATA_DIR # default"
+    echo -e "\t--tpchdata=$TPCH_DATA_DIR # default"
+    echo -e "\t--tpcdsdata=$TPCDS_DATA_DIR #default"
+    echo -e "\t--sf=$SF # default 1 GB "
+    echo -e "\t--install=$INSTALL # 0 for run only"
     echo -e ""
 }
 
@@ -44,6 +45,9 @@ while [ "$1" != "" ]; do
         --sf)
             SF=$VALUE
             ;;
+        --install)
+            INSTALL=$VALUE
+            ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
             usage
@@ -54,62 +58,63 @@ while [ "$1" != "" ]; do
 done
 
 
+if [ "$INSTALL" = 1 ] ; then 
 
-echo "#######################################################################"
-echo "UPGRADING PACKAGES"
-echo "LOGFILE: $LOGFILE"
-echo "#######################################################################"
-sudo apt-get update >> /dev/null 2>&1
-sudo apt-get upgrade -y  >> $LOGFILE 2>&1
-
-mkdir -p $PG_DATA_DIR
-mkdir -p $TPCH_DATA_DIR
-mkdir -p $TPCDS_DATA_DIR
-
-echo "#######################################################################"
-echo "Install PostgreSQL 10"
-echo "#######################################################################"
-sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt `lsb_release -c -s`-pgdg main" >> /etc/apt/sources.list'
-wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | sudo apt-key add -
-sudo apt-get update >> /dev/null 2>&1
-sudo apt-get install postgresql-10 postgresql-contrib-10 -y >> $LOGFILE 2>&1
-
-echo "CHANGING POSTGRESQL default DATA DIRECTORY TO $PG_DATA_DIR"
-sudo systemctl stop postgresql
-sleep 5
-if [ ! -d "$PG_DATA_DIR/10/main" ]; then
-    sudo rsync -av /var/lib/postgresql/ $PG_DATA_DIR >> $LOGFILE 2>&1
+    echo "#######################################################################"
+    echo "UPGRADING PACKAGES"
+    echo "LOGFILE: $LOGFILE"
+    echo "#######################################################################"
+    sudo apt-get update >> /dev/null 2>&1
+    sudo apt-get upgrade -y  >> $LOGFILE 2>&1
+    
+    mkdir -p $PG_DATA_DIR
+    mkdir -p $TPCH_DATA_DIR
+    mkdir -p $TPCDS_DATA_DIR
+    
+    echo "#######################################################################"
+    echo "Install PostgreSQL 10"
+    echo "#######################################################################"
+    sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt `lsb_release -c -s`-pgdg main" >> /etc/apt/sources.list'
+    wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | sudo apt-key add -
+    sudo apt-get update >> /dev/null 2>&1
+    sudo apt-get install postgresql-10 postgresql-contrib-10 -y >> $LOGFILE 2>&1
+    
+    echo "CHANGING POSTGRESQL default DATA DIRECTORY TO $PG_DATA_DIR"
+    sudo systemctl stop postgresql
+    sleep 5
+    if [ ! -d "$PG_DATA_DIR/10/main" ]; then
+        sudo rsync -av /var/lib/postgresql/ $PG_DATA_DIR >> $LOGFILE 2>&1
+    fi
+    if [ -d "/var/lib/postgresql/10/main" ]; then
+        echo "BACK UP OLD DATA DIR"
+        sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak 
+    fi
+    
+    echo "UPDATING CONFIGURATION FILE"
+    if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
+        sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
+    fi 
+    if [ -f "postgresql.conf" ]; then
+        echo "UPDATING postgresql.conf CONFIG FILE "
+        sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' postgresql.conf
+        sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' postgresql_execute.conf
+        sudo cp postgresql.conf /etc/postgresql/10/main/postgresql.conf
+    fi 
+    sudo usermod -a -G `id -g -n` postgres
+    sudo chown -R  postgres:`id -g -n` $PG_DATA_DIR
+    sudo systemctl start postgresql
+    
+    
+    echo "#######################################################################"
+    echo "INSTALLING PostGIS"
+    echo "#######################################################################"
+    sudo apt update >> $LOGFILE 2>&1
+    sudo apt install postgresql-10-postgis-2.4 -y >> $LOGFILE 2>&1 
+    sudo apt install postgresql-10-postgis-scripts -y >> $LOGFILE 2>&1
+    sudo apt install postgis -y >> $LOGFILE 2>&1
+    sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
+    sudo -u postgres psql -f postgis_install.sql >> $LOGFILE 2>&1
 fi
-if [ -d "/var/lib/postgresql/10/main" ]; then
-    echo "BACK UP OLD DATA DIR"
-    sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak 
-fi
-
-echo "UPDATING CONFIGURATION FILE"
-if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
-    sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
-fi 
-if [ -f "postgresql.conf" ]; then
-    echo "UPDATING postgresql.conf CONFIG FILE "
-    sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' postgresql.conf
-    sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' postgresql_execute.conf
-    sudo cp postgresql.conf /etc/postgresql/10/main/postgresql.conf
-fi 
-usermod -a -G `id -g -n` postgres
-sudo chown -R  postgres:`id -g -n` $PG_DATA_DIR
-sudo systemctl start postgresql
-
-
-echo "#######################################################################"
-echo "INSTALLING PostGIS"
-echo "#######################################################################"
-sudo apt update >> $LOGFILE 2>&1
-sudo apt install postgresql-10-postgis-2.4 -y >> $LOGFILE 2>&1 
-sudo apt install postgresql-10-postgis-scripts -y >> $LOGFILE 2>&1
-sudo apt install postgis -y >> $LOGFILE 2>&1
-sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
-sudo -u postgres psql -f postgis_install.sql >> $LOGFILE 2>&1
-
 
 ###########################################################
 ####   TPCH BENCHMARK 
@@ -155,6 +160,8 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     sudo sed -i 's,'"PASSWORD"','"tpch"',' tpch_config.xml
     cp tpch_config.xml oltpbench/
     cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd - 
+    # REMOVE RAW DATA
+    sudo rm -f TPCH_RAW_DATA/*
     echo "#######################################################################"
     echo "LOAD COMPLETE IN DATABASE tpch, CREATING INDEXES"
     echo "#######################################################################"
@@ -236,13 +243,16 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "LOADING TPC-DS DATA"
     echo "#######################################################################"
 
+    mkdir -p $TPCDS_RAW/tmp
     cd $TPCDS_RAW 
     for i in `ls *.dat`; do
         table=${i/.dat/}
         echo "Loading $table..."
-        sed 's/|$//' $i > /tmp/$i
+        sed 's/|$//' $i > $TPCDS_RAW/tmp/$i
         sudo -u postgres psql tpcds_db -q -c "TRUNCATE $table"
-        sudo -u postgres psql tpcds_db -c "\\copy $table FROM '/tmp/$i' CSV DELIMITER '|'"
+        sudo -u postgres psql tpcds_db -c "\\copy $table FROM '$TPCDS_RAW/tmp/$i' CSV DELIMITER '|'"
+        sudo rm -f $TPCDS_RAW/tmp/$i
+        sudo rm -f $i
     done
     cd -
     TPCDS_QUERIES=${TPCDS_DATA_DIR}/queries
