@@ -223,6 +223,8 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     sudo apt-get install gcc make flex bison git  -y  >> $LOGFILE 2>&1 
     git clone https://github.com/gregrahn/tpcds-kit.git >> $LOGFILE 2>&1
     cd tpcds-kit/tools && make OS=LINUX >> $LOGFILE 2>&1 && cd -
+    echo "COPYING templates list TO templates DIRECTORY"
+    cp templates.lst tpcds-kit/query_templates/templates.lst
 
     echo "#######################################################################"
     echo "CREATING DATABASE tpcds_db"
