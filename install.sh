@@ -196,7 +196,14 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     fi
 
 
+
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH_${INS_ID}.json"
+    FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH_${INS_ID}.dbfeatures"
+    FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH_${INS_ID}.machine"
+
+
+    sudo chmod +x os_stats.sh
+
     echo "#######################################################################"
     echo "COLLECTING DATA EVERY 5 MINS IN $FILENAME"
     echo "PRESS [CTRL+C] to stop.."
@@ -205,7 +212,13 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     while :
     do
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+        sudo -u postgres psql -t -A -d tpch_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
+        sudo -u postgres psql -t -A -d tpch_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
+        sudo ./os_stats.sh > ${FILENAME_MACHINE}
         curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+        curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+        curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+         
         echo -ne "UPLOAD: $COUNTER"\\r
         let COUNTER=COUNTER+1
         sleep 300
@@ -276,8 +289,12 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         TIER="custom"
         INS_ID=`openssl rand -base64 3`
     fi
+    
+    sudo chmod +x os_stats.sh
 
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
+    FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.dbfeatures"
+    FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.machine"
     
     sudo -u postgres psql tpcds_db -f tpcds_index.sql >> $LOGFILE 2>&1
     echo "RECONFIGURING postgres FOR STATS"
@@ -299,7 +316,12 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1 
         cd - > /dev/null 2>&1
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+        sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
+        sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
+        sudo ./os_stats.sh > ${FILENAME_MACHINE}
         curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+        curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+        curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
         echo -ne "BATCH: $COUNTER"\\r
         let COUNTER=COUNTER+1
         sleep 2
