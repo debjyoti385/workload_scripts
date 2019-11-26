@@ -65,7 +65,7 @@ if [ "$INSTALL" = 1 ] ; then
     echo "LOGFILE: $LOGFILE"
     echo "#######################################################################"
     sudo apt-get update >> /dev/null 2>&1
-    sudo apt-get upgrade -y  >> $LOGFILE 2>&1
+    #sudo apt-get upgrade -y  >> $LOGFILE 2>&1
     
     mkdir -p $PG_DATA_DIR
     mkdir -p $TPCH_DATA_DIR
