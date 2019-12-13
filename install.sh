@@ -349,17 +349,19 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         echo "#######################################################################"
         echo "DOWNLOADING SPATIAL DATA"
         echo "#######################################################################"
-        curl http://db03.cs.utah.edu:5555/spatial_benchmark_sql.zip
+        wget http://db03.cs.utah.edu:5555/spatial_benchmark_sql.zip
         unzip spatial_benchmark_sql.zip -d $SPATIAL_DATA_DIR
         sudo chmod -R 777 $SPATIAL_DATA_DIR
         rm spatial_benchmark_sql.zip
 
         echo "CREATE DATABASE spatial_db"
+        sudo -u postgres psql -c "DROP DATABASE IF EXISTS spatial_db;"
         sudo -u postgres psql -c "CREATE DATABASE spatial_db"
         sudo -u postgres psql -d spatial_db -c "CREATE EXTENSION postgis;"
-        sudo -u postgres psql -d jackpine -f  /usr/share/postgresql/10/contrib/postgis-2.4/legacy.sql
+        sudo -u postgres psql -d spatial_db -f  /usr/share/postgresql/10/contrib/postgis-2.4/legacy.sql
 
         sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234';"
+
 
         find $SPATIAL_DATA_DIR -name *_schema.sql | xargs -I {} sudo -u postgres psql -d spatial_db -f {}
 
@@ -369,6 +371,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         find $SPATIAL_DATA_DIR -name *_data.sql | xargs -I {} sudo -u postgres psql -d spatial_db -f {} >> /dev/null 2>&1
 
         git clone https://github.com/debjyoti385/jackpine.git
+        sudo chmod -R 777 jackpine
         cd jackpine
         ant clean compile jar
         cd -
