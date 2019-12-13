@@ -373,10 +373,13 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         fi
 
         git clone https://github.com/debjyoti385/jackpine.git
-        sudo chmod -R 777 jackpine
+        sudo sed -i 's,'"DATABASE_NAME"','"spatial_db"',' jackpine/configs/connection_postgresql_spatial.properties
+        RESULT_DIR=jackpine/results
+        mkdir -p $RESULT_DIR
         cd jackpine
         ant clean compile jar
         cd -
+        sudo chmod -R 777 jackpine
 
         sudo apt-get install python-pip -y > /dev/null 2>&1
         pip install argparse
@@ -414,9 +417,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         echo "PRESS [CTRL+C] to stop.."
         echo "#######################################################################"
 
-        sudo sed -i 's,'"DATABASE_NAME"','"spatial_db"',' jackpine/configs/connection_postgresql_spatial.properties
-        RESULT_DIR=jackpine/results
-        mkdir -p RESULT_DIR
+
 
         while :
         do
