@@ -4,7 +4,7 @@ TPCH_DATA_DIR="`pwd`/data/tpch_data";
 TPCDS_DATA_DIR="`pwd`/data/tpcds_data";
 SPATIAL_DATA_DIR="`pwd`/data/spatial_data";
 LOGFILE="`pwd`/install.log";
-BENCHMARK="TPCH";
+BENCHMARK="";
 SF=1
 INSTALL=1
 
@@ -14,7 +14,7 @@ function usage()
     echo -e ""
     echo -e "sudo ./install.sh OR sudo bash install.sh"
     echo -e "\t-h --help"
-    echo -e "\t-b --bench=$BENCHMARK # tpch/tpds"
+    echo -e "\t-b --benchmark=$BENCHMARK # tpch/tpds"
     echo -e "\t--pgdata=$PG_DATA_DIR # default"
     echo -e "\t--tpchdata=$TPCH_DATA_DIR # default"
     echo -e "\t--tpcdsdata=$TPCDS_DATA_DIR #default"
@@ -44,7 +44,7 @@ while [ "$1" != "" ]; do
         --spatialdata)
             SPATIAL_DATA_DIR=$VALUE
             ;;
-        -b | --bench)
+        -b | --benchmark)
             BENCHMARK=$VALUE
             ;;
         --sf)
@@ -430,4 +430,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
             let COUNTER=COUNTER+1
             sleep 300
         done
+        
+else
+  echo "NO BENCHMARK SPECIFIED, use --benchmark=[tpch/tpcds/spatial] as options"
 fi

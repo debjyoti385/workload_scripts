@@ -12,29 +12,30 @@ chmod +x install.sh
 
 ```
 2. Run Benchmarks: (Use `screen`)
+
 TPC-H Benchmark: Scale Factor 3 GB
 ```
 screen -S install
-sudo ./install.sh -b=tpch --pgdata=/home/ubuntu/data/postgres_data --tpchdata=/home/ubuntu/data/tpch_data  --sf=3
+sudo ./install.sh --benchmark=tpch --pgdata=/home/ubuntu/data/postgres_data --tpchdata=/home/ubuntu/data/tpch_data  --sf=3
 ```
 
 TPC-DS Benchmark: Scale Factor 5 GB
 ```
 screen -S install
-sudo ./install.sh -b=tpcds --pgdata=/home/ubuntu/data/postgres_data --tpcdsdata=/home/ubuntu/data/tpcds_data --sf=5
+sudo ./install.sh --benchmark=tpcds --pgdata=/home/ubuntu/data/postgres_data --tpcdsdata=/home/ubuntu/data/tpcds_data --sf=5
 ```
 
 Spatial Benchmark:
 ```
 screen -S install
-sudo ./install.sh -b=spatial --pgdata=/home/ubuntu/data/postgres_data --spatialdata=/home/ubuntu/data/spatial_data
+sudo ./install.sh --benchmark=spatial --pgdata=/home/ubuntu/data/postgres_data --spatialdata=/home/ubuntu/data/spatial_data
 ```
 
 ## Options
 ```
 sudo ./install.sh
     -h --help
-    --bench=tpch                               # Benchmark: tpch (default), tpcds  
+    --benchmark=tpch                               # Benchmark: tpch (default), tpcds  
     --pgdata=/home/ubuntu/data/postgres_data   # PostgreSQL Data Directory (default)
     --tpchdata=/home/ubuntu/data/tpch_data     # TPC-H Benchmark Data Directory (default)
     --tpcdsdata=/home/ubuntu/data/tpcds_data   # TPC-DS Benchmark Data Directory (default)
