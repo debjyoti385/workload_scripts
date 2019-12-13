@@ -37,8 +37,10 @@ sudo ./install.sh
     -h --help
     --benchmark=tpch                               # Benchmark: tpch (default), tpcds, spatial, osm
     --pgdata=/home/ubuntu/data/postgres_data   # PostgreSQL Data Directory (default)
-    --data=/home/ubuntu/data/benchmark_data     # Benchmark Data Directory (default)
+    --data=/home/ubuntu/data/benchmark_data    # Benchmark Data Directory (default)
     --sf=1                                     # Scale Factor in GBs (default 1 GB)
     --install=1                                # install=1 to install prerequisite  
-                                               # 0 only run benchmark skip install
+                                               # install=0 only run benchmark skip install
+    --import=1                                 # import=1 perform data import
+                                               # import=0 for no data import
 ```

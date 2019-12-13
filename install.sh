@@ -5,6 +5,7 @@ LOGFILE="`pwd`/install.log";
 BENCHMARK="";
 SF=1
 INSTALL=1
+IMPORT=1
 
 function usage()
 {
@@ -17,6 +18,7 @@ function usage()
     echo -e "\t--data=$BENCHMARK_DATA_DIR # default"
     echo -e "\t--sf=$SF # default 1 GB "
     echo -e "\t--install=$INSTALL # 0 for run only"
+    echo -e "\t--import=$IMPORT # 0 for no data import"
     echo -e ""
 }
 
@@ -42,6 +44,9 @@ while [ "$1" != "" ]; do
             ;;
         --install)
             INSTALL=$VALUE
+            ;;
+        --import)
+            IMPORT=$VALUE
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -127,39 +132,41 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "COMPILING oltpbench"
     cd oltpbench &&  ant bootstrap >> $LOGFILE 2>&1 && ant resolve >> $LOGFILE 2>&1 && ant build >> $LOGFILE 2>&1 && cd -
 
+    if [ "$IMPORT" = 1 ] ; then
+        echo "#######################################################################"
+        echo "GENERATING TPC-H DATA"
+        echo "#######################################################################"
+        git clone https://github.com/electrum/tpch-dbgen $BENCHMARK_DATA_DIR/dbgen >> $LOGFILE 2>&1
+        echo "COMPILING DATA GENERATION CODE"
+        sudo apt-get install build-essential -y >> $LOGFILE  2>&1
+        cd $BENCHMARK_DATA_DIR/dbgen && make >> $LOGFILE 2>&1 && cd -
+        echo "#######################################################################"
+        echo "GENERATING TPC-H DATA WITH SCALE FACTOR "$SF [Takes time, Keep Patience]
+        echo "check $LOGFILE for details"
+        echo "#######################################################################"
+        mkdir -p $BENCHMARK_DATA_DIR/raw/$SF
+        cd $BENCHMARK_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> $LOGFILE 2>&1  && cd -
+        echo "STORING DATA AT LOCATION: " $BENCHMARK_DATA_DIR/raw/$SF/
+        mv $BENCHMARK_DATA_DIR/dbgen/*.tbl* $BENCHMARK_DATA_DIR/raw/$SF/
+        TPCH_RAW_DATA=$BENCHMARK_DATA_DIR/raw/$SF
 
-    echo "#######################################################################"
-    echo "GENERATING TPC-H DATA"
-    echo "#######################################################################"
-    git clone https://github.com/electrum/tpch-dbgen $BENCHMARK_DATA_DIR/dbgen >> $LOGFILE 2>&1
-    echo "COMPILING DATA GENERATION CODE"
-    sudo apt-get install build-essential -y >> $LOGFILE  2>&1
-    cd $BENCHMARK_DATA_DIR/dbgen && make >> $LOGFILE 2>&1 && cd -
-    echo "#######################################################################"
-    echo "GENERATING TPC-H DATA WITH SCALE FACTOR "$SF [Takes time, Keep Patience]
-    echo "check $LOGFILE for details"
-    echo "#######################################################################"
-    mkdir -p $BENCHMARK_DATA_DIR/raw/$SF
-    cd $BENCHMARK_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> $LOGFILE 2>&1  && cd -
-    echo "STORING DATA AT LOCATION: " $BENCHMARK_DATA_DIR/raw/$SF/
-    mv $BENCHMARK_DATA_DIR/dbgen/*.tbl* $BENCHMARK_DATA_DIR/raw/$SF/
-    TPCH_RAW_DATA=$BENCHMARK_DATA_DIR/raw/$SF
+        echo "#######################################################################"
+        echo "LOAD DATA IN DATABASE WITH oltpbenchmark"
+        echo "#######################################################################"
+        sudo -u postgres psql -f sqls/tpch_install.sql >> $LOGFILE 2>&1
+        sudo sed -i 's,'"TPCH_RAW_DATA"','"$TPCH_RAW_DATA"',' configs/tpch_config.xml
+        sudo sed -i 's,'"USERNAME"','"tpch"',' configs/tpch_config.xml
+        sudo sed -i 's,'"PASSWORD"','"tpch"',' configs/tpch_config.xml
+        cp configs/tpch_config.xml oltpbench/
+        cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd -
+        # REMOVE RAW DATA
+        sudo rm -f TPCH_RAW_DATA/*
+        echo "#######################################################################"
+        echo "LOAD COMPLETE IN DATABASE tpch, CREATING INDEXES"
+        echo "#######################################################################"
+        sudo -u postgres psql -f sqls/tpch_index.sql >> $LOGFILE 2>&1
+    fi
 
-    echo "#######################################################################"
-    echo "LOAD DATA IN DATABASE WITH oltpbenchmark"
-    echo "#######################################################################"
-    sudo -u postgres psql -f sqls/tpch_install.sql >> $LOGFILE 2>&1
-    sudo sed -i 's,'"TPCH_RAW_DATA"','"$TPCH_RAW_DATA"',' configs/tpch_config.xml
-    sudo sed -i 's,'"USERNAME"','"tpch"',' configs/tpch_config.xml
-    sudo sed -i 's,'"PASSWORD"','"tpch"',' configs/tpch_config.xml
-    cp configs/tpch_config.xml oltpbench/
-    cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd -
-    # REMOVE RAW DATA
-    sudo rm -f TPCH_RAW_DATA/*
-    echo "#######################################################################"
-    echo "LOAD COMPLETE IN DATABASE tpch, CREATING INDEXES"
-    echo "#######################################################################"
-    sudo -u postgres psql -f sqls/tpch_index.sql >> $LOGFILE 2>&1
     echo "RECONFIGURING postgres FOR STATS"
     echo "#######################################################################"
     sudo systemctl stop postgresql
@@ -188,7 +195,6 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
         TIER="custom"
         INS_ID=`openssl rand -base64 3`
     fi
-
 
 
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCH_${INS_ID}.json"
@@ -233,37 +239,40 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "COPYING templates list TO templates DIRECTORY"
     cp configs/templates.lst tpcds-kit/query_templates/templates.lst
 
-    echo "#######################################################################"
-    echo "CREATING DATABASE tpcds_db"
-    echo "#######################################################################"
-    sudo -u postgres psql -f sqls/tpcds_install.sql >> $LOGFILE 2>&1
-    sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> $LOGFILE 2>&1
+    if [ "$IMPORT" = 1 ] ; then
+        echo "#######################################################################"
+        echo "CREATING DATABASE tpcds_db"
+        echo "#######################################################################"
+        sudo -u postgres psql -f sqls/tpcds_install.sql >> $LOGFILE 2>&1
+        sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> $LOGFILE 2>&1
 
-    echo "#######################################################################"
-    echo "GENERATING TPC-DS DATA"
-    echo "#######################################################################"
-    cd tpcds-kit/tools
-    TPCDS_RAW=${BENCHMARK_DATA_DIR}/raw
-    mkdir -p $TPCDS_RAW
-    ./dsdgen -SCALE $SF -FORCE -VERBOSE -DIR ${BENCHMARK_DATA_DIR}/raw
-    cd -
+        echo "#######################################################################"
+        echo "GENERATING TPC-DS DATA"
+        echo "#######################################################################"
+        cd tpcds-kit/tools
+        TPCDS_RAW=${BENCHMARK_DATA_DIR}/raw
+        mkdir -p $TPCDS_RAW
+        ./dsdgen -SCALE $SF -FORCE -VERBOSE -DIR ${BENCHMARK_DATA_DIR}/raw
+        cd -
 
-    echo "#######################################################################"
-    echo "LOADING TPC-DS DATA"
-    echo "#######################################################################"
+        echo "#######################################################################"
+        echo "LOADING TPC-DS DATA"
+        echo "#######################################################################"
 
-    mkdir -p $TPCDS_RAW/tmp
-    cd $TPCDS_RAW
-    for i in `ls *.dat`; do
-        table=${i/.dat/}
-        echo "Loading $table..."
-        sed 's/|$//' $i > $TPCDS_RAW/tmp/$i
-        sudo -u postgres psql tpcds_db -q -c "TRUNCATE $table"
-        sudo -u postgres psql tpcds_db -c "\\copy $table FROM '$TPCDS_RAW/tmp/$i' CSV DELIMITER '|'"
-        sudo rm -f $TPCDS_RAW/tmp/$i
-        sudo rm -f $i
-    done
-    cd -
+        mkdir -p $TPCDS_RAW/tmp
+        cd $TPCDS_RAW
+        for i in `ls *.dat`; do
+            table=${i/.dat/}
+            echo "Loading $table..."
+            sed 's/|$//' $i > $TPCDS_RAW/tmp/$i
+            sudo -u postgres psql tpcds_db -q -c "TRUNCATE $table"
+            sudo -u postgres psql tpcds_db -c "\\copy $table FROM '$TPCDS_RAW/tmp/$i' CSV DELIMITER '|'"
+            sudo rm -f $TPCDS_RAW/tmp/$i
+            sudo rm -f $i
+        done
+        cd -
+    fi
+
     TPCDS_QUERIES=${BENCHMARK_DATA_DIR}/queries
     mkdir -p $TPCDS_QUERIES
 
@@ -334,32 +343,34 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
         sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git osmosis osm2pgsql -y >> $LOGFILE 2>&1
 
-        echo "#######################################################################"
-        echo "DOWNLOADING SPATIAL DATA"
-        echo "#######################################################################"
-        wget http://db03.cs.utah.edu:5555/spatial_benchmark_sql.zip
+        if [ "$IMPORT" = 1 ] ; then
+            echo "#######################################################################"
+            echo "DOWNLOADING SPATIAL DATA"
+            echo "#######################################################################"
+            wget http://db03.cs.utah.edu:5555/spatial_benchmark_sql.zip
 
-        echo "EXTRACTING SPATIAL DATA"
-        echo "#######################################################################"
-        unzip spatial_benchmark_sql.zip -d $BENCHMARK_DATA_DIR >> $LOGFILE 2>&1
-        sudo chmod -R 777 $BENCHMARK_DATA_DIR
-        rm spatial_benchmark_sql.zip
+            echo "EXTRACTING SPATIAL DATA"
+            echo "#######################################################################"
+            unzip spatial_benchmark_sql.zip -d $BENCHMARK_DATA_DIR >> $LOGFILE 2>&1
+            sudo chmod -R 777 $BENCHMARK_DATA_DIR
+            rm spatial_benchmark_sql.zip
 
-        echo "CREATE DATABASE spatial_db"
-        sudo -u postgres psql -c "DROP DATABASE IF EXISTS spatial_db;"
-        sudo -u postgres psql -c "CREATE DATABASE spatial_db"
-        sudo -u postgres psql -d spatial_db -c "CREATE EXTENSION postgis;"
-        sudo -u postgres psql -d spatial_db -f  /usr/share/postgresql/10/contrib/postgis-2.4/legacy.sql >> $LOGFILE 2>&1
+            echo "CREATE DATABASE spatial_db"
+            sudo -u postgres psql -c "DROP DATABASE IF EXISTS spatial_db;"
+            sudo -u postgres psql -c "CREATE DATABASE spatial_db"
+            sudo -u postgres psql -d spatial_db -c "CREATE EXTENSION postgis;"
+            sudo -u postgres psql -d spatial_db -f  /usr/share/postgresql/10/contrib/postgis-2.4/legacy.sql >> $LOGFILE 2>&1
 
-        sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234';"
+            sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234';"
 
 
-        find $BENCHMARK_DATA_DIR -name *_schema.sql | xargs -t -I {} sudo -u postgres psql -d spatial_db -f {}
+            find $BENCHMARK_DATA_DIR -name *_schema.sql | xargs -t -I {} sudo -u postgres psql -d spatial_db -f {}
 
-        echo "#######################################################################"
-        echo "INSERTING SPATIAL DATA IN TABLES"
-        echo "#######################################################################"
-        find $BENCHMARK_DATA_DIR -name *_data.sql | xargs -t -I {} sudo -u postgres psql -d spatial_db -f {} >> /dev/null
+            echo "#######################################################################"
+            echo "INSERTING SPATIAL DATA IN TABLES"
+            echo "#######################################################################"
+            find $BENCHMARK_DATA_DIR -name *_data.sql | xargs -t -I {} sudo -u postgres psql -d spatial_db -f {} >> /dev/null
+        fi
 
         git clone https://github.com/debjyoti385/jackpine.git
         sudo chmod -R 777 jackpine
@@ -403,6 +414,10 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         echo "PRESS [CTRL+C] to stop.."
         echo "#######################################################################"
 
+        sudo sed -i 's,'"DATABASE_NAME"','"spatial_db"',' jackpine/configs/connection_postgresql_spatial.properties
+        RESULT_DIR=jackpine/results
+        mkdir -p RESULT_DIR
+
         while :
         do
             cd jackpine
@@ -432,44 +447,45 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
           sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1
 
-          echo "#######################################################################"
-          echo "DOWNLOADING OSM DATA"
-          echo "#######################################################################"
-          wget https://download.geofabrik.de/north-america/us/california-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/california-latest.osm.pbf
-          wget https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf
-          wget https://download.geofabrik.de/north-america/us/utah-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf
+          if [ "$IMPORT" = 1 ] ; then
+              echo "#######################################################################"
+              echo "DOWNLOADING OSM DATA"
+              echo "#######################################################################"
+              wget https://download.geofabrik.de/north-america/us/california-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/california-latest.osm.pbf
+              wget https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf
+              wget https://download.geofabrik.de/north-america/us/utah-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf
 
-          LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la_county.osm
-          NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/ny_county.osm
-          SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/sl_county.osm
-          LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la.osm
-          NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/nyc.osm
-          SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/slc.osm
+              LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la_county.osm
+              NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/ny_county.osm
+              SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/sl_county.osm
+              LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la.osm
+              NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/nyc.osm
+              SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/slc.osm
 
-          osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
+              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
 
-          osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
+              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
 
-          osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.260184 bottom=40.414864 right=-111.560498 top=40.921879 clipIncompleteEntities=true --write-xml file=$SL_COUNTY_OSM_FILE
+              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.260184 bottom=40.414864 right=-111.560498 top=40.921879 clipIncompleteEntities=true --write-xml file=$SL_COUNTY_OSM_FILE
 
-          osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.6682 bottom=33.7036 right=-118.1553 top=34.3373 clipIncompleteEntities=true --write-xml file=$LA_CITY_OSM_FILE
+              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.6682 bottom=33.7036 right=-118.1553 top=34.3373 clipIncompleteEntities=true --write-xml file=$LA_CITY_OSM_FILE
 
-          osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
+              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
 
-          osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
+              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
 
-          echo "IMPORT OSM DATA"
-          echo "#######################################################################"
+              echo "IMPORT OSM DATA"
+              echo "#######################################################################"
 
-          echo "IMPORT NEW YORK CITY"
-          echo "#######################################################################"
-          sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
-          sudo scripts/create_db_osm.sh new_york_county $NY_COUNTY_OSM_FILE
-          sudo scripts/create_db_osm.sh salt_lake_county $SL_COUNTY_OSM_FILE
-          sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
-          sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
-          sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
-
+              echo "IMPORT NEW YORK CITY"
+              echo "#######################################################################"
+              sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
+              sudo scripts/create_db_osm.sh new_york_county $NY_COUNTY_OSM_FILE
+              sudo scripts/create_db_osm.sh salt_lake_county $SL_COUNTY_OSM_FILE
+              sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
+              sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
+              sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
+          fi
 
 
           sudo apt-get install python-pip -y > /dev/null 2>&1
