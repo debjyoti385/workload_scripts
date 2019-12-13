@@ -2,6 +2,7 @@
 PG_DATA_DIR="`pwd`/data/postgres_data";
 TPCH_DATA_DIR="`pwd`/data/tpch_data";
 TPCDS_DATA_DIR="`pwd`/data/tpcds_data";
+SPATIAL_DATA_DIR="`pwd`/data/spatial_data";
 LOGFILE="`pwd`/install.log";
 BENCHMARK="TPCH";
 SF=1
@@ -17,6 +18,7 @@ function usage()
     echo -e "\t--pgdata=$PG_DATA_DIR # default"
     echo -e "\t--tpchdata=$TPCH_DATA_DIR # default"
     echo -e "\t--tpcdsdata=$TPCDS_DATA_DIR #default"
+    echo -e "\t--spatialdata=$SPATIAL_DATA_DIR #default"
     echo -e "\t--sf=$SF # default 1 GB "
     echo -e "\t--install=$INSTALL # 0 for run only"
     echo -e ""
@@ -39,6 +41,9 @@ while [ "$1" != "" ]; do
         --tpcdsdata)
             TPCDS_DATA_DIR=$VALUE
             ;;
+        --spatialdata)
+            SPATIAL_DATA_DIR=$VALUE
+            ;;
         -b | --bench)
             BENCHMARK=$VALUE
             ;;
@@ -58,7 +63,7 @@ while [ "$1" != "" ]; do
 done
 
 
-if [ "$INSTALL" = 1 ] ; then 
+if [ "$INSTALL" = 1 ] ; then
 
     echo "#######################################################################"
     echo "UPGRADING PACKAGES"
@@ -66,11 +71,12 @@ if [ "$INSTALL" = 1 ] ; then
     echo "#######################################################################"
     sudo apt-get update >> /dev/null 2>&1
     #sudo apt-get upgrade -y  >> $LOGFILE 2>&1
-    
+
     mkdir -p $PG_DATA_DIR
     mkdir -p $TPCH_DATA_DIR
     mkdir -p $TPCDS_DATA_DIR
-    
+    mkdir -p $SPATIAL_DATA_DIR
+
     echo "#######################################################################"
     echo "Install PostgreSQL 10"
     echo "#######################################################################"
@@ -78,7 +84,7 @@ if [ "$INSTALL" = 1 ] ; then
     wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | sudo apt-key add -
     sudo apt-get update >> /dev/null 2>&1
     sudo apt-get install postgresql-10 postgresql-contrib-10 -y >> $LOGFILE 2>&1
-    
+
     echo "CHANGING POSTGRESQL default DATA DIRECTORY TO $PG_DATA_DIR"
     sudo systemctl stop postgresql
     sleep 5
@@ -87,29 +93,29 @@ if [ "$INSTALL" = 1 ] ; then
     fi
     if [ -d "/var/lib/postgresql/10/main" ]; then
         echo "BACK UP OLD DATA DIR"
-        sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak 
+        sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak
     fi
-    
+
     echo "UPDATING CONFIGURATION FILE"
     if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
         sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
-    fi 
+    fi
     if [ -f "postgresql.conf" ]; then
         echo "UPDATING postgresql.conf CONFIG FILE "
         sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' postgresql.conf
         sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' postgresql_execute.conf
         sudo cp postgresql.conf /etc/postgresql/10/main/postgresql.conf
-    fi 
+    fi
     sudo usermod -a -G `id -g -n` postgres
     sudo chown -R  postgres:`id -g -n` $PG_DATA_DIR
     sudo systemctl start postgresql
-    
-    
+
+
     echo "#######################################################################"
     echo "INSTALLING PostGIS"
     echo "#######################################################################"
     sudo apt update >> $LOGFILE 2>&1
-    sudo apt install postgresql-10-postgis-2.4 -y >> $LOGFILE 2>&1 
+    sudo apt install postgresql-10-postgis-2.4 -y >> $LOGFILE 2>&1
     sudo apt install postgresql-10-postgis-scripts -y >> $LOGFILE 2>&1
     sudo apt install postgis -y >> $LOGFILE 2>&1
     sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
@@ -117,40 +123,40 @@ if [ "$INSTALL" = 1 ] ; then
 fi
 
 ###########################################################
-####   TPCH BENCHMARK 
+####   TPCH BENCHMARK
 ###########################################################
 
-if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then 
+if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
 
     echo "#######################################################################"
     echo "INSTALLING JAVA AND OLTPBENCH"
     echo "#######################################################################"
     sudo apt-get update >> $LOGFILE 2>&1
     sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
-    sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1 
+    sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1
     echo "CLONING OLTPBENCH GIT REPOSITORY"
     git clone https://github.com/oltpbenchmark/oltpbench.git >> $LOGFILE 2>&1
     echo "COMPILING oltpbench"
-    cd oltpbench &&  ant bootstrap >> $LOGFILE 2>&1 && ant resolve >> $LOGFILE 2>&1 && ant build >> $LOGFILE 2>&1 && cd -  
+    cd oltpbench &&  ant bootstrap >> $LOGFILE 2>&1 && ant resolve >> $LOGFILE 2>&1 && ant build >> $LOGFILE 2>&1 && cd -
 
-    
+
     echo "#######################################################################"
     echo "GENERATING TPC-H DATA"
     echo "#######################################################################"
     git clone https://github.com/electrum/tpch-dbgen $TPCH_DATA_DIR/dbgen >> $LOGFILE 2>&1
     echo "COMPILING DATA GENERATION CODE"
-    sudo apt-get install build-essential -y >> $LOGFILE  2>&1 
-    cd $TPCH_DATA_DIR/dbgen && make >> $LOGFILE 2>&1 && cd -  
+    sudo apt-get install build-essential -y >> $LOGFILE  2>&1
+    cd $TPCH_DATA_DIR/dbgen && make >> $LOGFILE 2>&1 && cd -
     echo "#######################################################################"
     echo "GENERATING TPC-H DATA WITH SCALE FACTOR "$SF [Takes time, Keep Patience]
     echo "check $LOGFILE for details"
     echo "#######################################################################"
     mkdir -p $TPCH_DATA_DIR/raw/$SF
-    cd $TPCH_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> $LOGFILE 2>&1  && cd - 
+    cd $TPCH_DATA_DIR/dbgen && sudo ./dbgen -s $SF -f -v >> $LOGFILE 2>&1  && cd -
     echo "STORING DATA AT LOCATION: " $TPCH_DATA_DIR/raw/$SF/
     mv $TPCH_DATA_DIR/dbgen/*.tbl* $TPCH_DATA_DIR/raw/$SF/
     TPCH_RAW_DATA=$TPCH_DATA_DIR/raw/$SF
-    
+
     echo "#######################################################################"
     echo "LOAD DATA IN DATABASE WITH oltpbenchmark"
     echo "#######################################################################"
@@ -159,7 +165,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     sudo sed -i 's,'"USERNAME"','"tpch"',' tpch_config.xml
     sudo sed -i 's,'"PASSWORD"','"tpch"',' tpch_config.xml
     cp tpch_config.xml oltpbench/
-    cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd - 
+    cd oltpbench && ./oltpbenchmark --create=true --load=true -c tpch_config.xml -b tpch && cd -
     # REMOVE RAW DATA
     sudo rm -f TPCH_RAW_DATA/*
     echo "#######################################################################"
@@ -176,8 +182,8 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     echo "EXECUTING TPCH QUERIES "
     echo "#######################################################################"
-    cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> $LOGFILE 2>&1 & disown 
-    
+    cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> $LOGFILE 2>&1 & disown
+
     sudo apt-get install python-pip -y > /dev/null 2>&1
     pip install argparse
     COUNTER=1
@@ -218,22 +224,22 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
         curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
         curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
         curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-         
+
         echo -ne "UPLOAD: $COUNTER"\\r
         let COUNTER=COUNTER+1
         sleep 300
     done
-    
-elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then 
-        
+
+elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
+
 ###########################################################
-####   TPC-DS BENCHMARK 
+####   TPC-DS BENCHMARK
 ###########################################################
 
     echo "#######################################################################"
     echo "INSTALLING PREREQUISITES FOR TPC-DS BENCHMARK"
     echo "#######################################################################"
-    sudo apt-get install gcc make flex bison git  -y  >> $LOGFILE 2>&1 
+    sudo apt-get install gcc make flex bison git  -y  >> $LOGFILE 2>&1
     git clone https://github.com/gregrahn/tpcds-kit.git >> $LOGFILE 2>&1
     cd tpcds-kit/tools && make OS=LINUX >> $LOGFILE 2>&1 && cd -
     echo "COPYING templates list TO templates DIRECTORY"
@@ -242,13 +248,13 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "#######################################################################"
     echo "CREATING DATABASE tpcds_db"
     echo "#######################################################################"
-    sudo -u postgres psql -f tpcds_install.sql >> $LOGFILE 2>&1  
-    sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> $LOGFILE 2>&1  
-     
+    sudo -u postgres psql -f tpcds_install.sql >> $LOGFILE 2>&1
+    sudo -u postgres psql tpcds_db -f tpcds-kit/tools/tpcds.sql >> $LOGFILE 2>&1
+
     echo "#######################################################################"
     echo "GENERATING TPC-DS DATA"
     echo "#######################################################################"
-    cd tpcds-kit/tools 
+    cd tpcds-kit/tools
     TPCDS_RAW=${TPCDS_DATA_DIR}/raw
     mkdir -p $TPCDS_RAW
     ./dsdgen -SCALE $SF -FORCE -VERBOSE -DIR ${TPCDS_DATA_DIR}/raw
@@ -259,7 +265,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "#######################################################################"
 
     mkdir -p $TPCDS_RAW/tmp
-    cd $TPCDS_RAW 
+    cd $TPCDS_RAW
     for i in `ls *.dat`; do
         table=${i/.dat/}
         echo "Loading $table..."
@@ -278,7 +284,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     COUNTER=1
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
-    
+
     if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
         TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
         INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
@@ -289,13 +295,13 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         TIER="custom"
         INS_ID=`openssl rand -base64 3`
     fi
-    
+
     sudo chmod +x os_stats.sh
 
     FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
     FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.dbfeatures"
     FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.machine"
-    
+
     sudo -u postgres psql tpcds_db -f tpcds_index.sql >> $LOGFILE 2>&1
     echo "RECONFIGURING postgres FOR STATS"
     echo "#######################################################################"
@@ -312,8 +318,8 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     while :
     do
         cd tpcds-kit/tools
-        ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> $LOGFILE 2>&1 
-        sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1 
+        ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> $LOGFILE 2>&1
+        sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1
         cd - > /dev/null 2>&1
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
         sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
@@ -326,7 +332,94 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         let COUNTER=COUNTER+1
         sleep 2
     done
+
+###########################################################
+####   SPATIAL BENCHMARK
+###########################################################
+
+elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
+
+        echo "#######################################################################"
+        echo "INSTALLING JAVA"
+        echo "#######################################################################"
+        sudo apt-get update >> $LOGFILE 2>&1
+        sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
+        sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1
+
+        echo "#######################################################################"
+        echo "DOWNLOADING SPATIAL DATA"
+        echo "#######################################################################"
+        curl http://db03.cs.utah.edu:5555/spatial_benchmark_sql.zip
+        unzip spatial_benchmark_sql.zip -d $SPATIAL_DATA_DIR
+        sudo chmod -R 777 $SPATIAL_DATA_DIR
+        rm spatial_benchmark_sql.zip
+
+        echo "CREATE DATABASE spatial_db"
+        sudo -u postgres psql -c "CREATE DATABASE spatial_db"
+        sudo -u postgres psql -d spatial_db -c "CREATE EXTENSION postgis;"
+        sudo -u postgres psql -d jackpine -f  /usr/share/postgresql/10/contrib/postgis-2.4/legacy.sql
+
+        sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '1234';"
+
+        find $SPATIAL_DATA_DIR -name *_schema.sql | xargs -I {} sudo -u postgres psql -d spatial_db -f {}
+
+        echo "#######################################################################"
+        echo "INSERTING SPATIAL DATA IN TABLES"
+        echo "#######################################################################"
+        find $SPATIAL_DATA_DIR -name *_data.sql | xargs -I {} sudo -u postgres psql -d spatial_db -f {} >> /dev/null 2>&1
+
+        git clone https://github.com/debjyoti385/jackpine.git
+        cd jackpine
+        ant clean compile jar
+
+        sudo apt-get install python-pip -y > /dev/null 2>&1
+        pip install argparse
+        COUNTER=1
+        MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
+        PROC=`nproc`
+
+        if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
+            TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+            INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+        elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+            TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
+            INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
+        else
+            TIER="custom"
+            INS_ID=`openssl rand -base64 3`
+        fi
+
+        sudo chmod +x os_stats.sh
+
+        FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.json"
+        FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.dbfeatures"
+        FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.machine"
+
+
+        echo "RECONFIGURING postgres FOR STATS"
+        echo "#######################################################################"
+        sudo systemctl stop postgresql
+        sleep 5
+        sudo cp postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
+        sudo systemctl start postgresql
+        sleep 5
+        echo "#######################################################################"
+        echo "RUNNING SPATIAL BENCHMARK AND COLLECTING DATA IN $FILENAME"
+        echo "PRESS [CTRL+C] to stop.."
+        echo "#######################################################################"
+
+        while :
+        do
+            sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+            sudo -u postgres psql -t -A -d tpch_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
+            sudo -u postgres psql -t -A -d tpch_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
+            sudo ./os_stats.sh > ${FILENAME_MACHINE}
+            curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+            curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+            curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+
+            echo -ne "UPLOAD: $COUNTER"\\r
+            let COUNTER=COUNTER+1
+            sleep 300
+        done
 fi
-
-
-
