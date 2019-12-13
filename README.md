@@ -1,27 +1,34 @@
 # Workload Scripts
-These scripts installs PostgreSQL 10, PostGIS 2.4 and Oltpbenchmark on AWS Ubuntu 18.04 or 16.04 instances. It also upload benchmark runs and experiment data to server. 
+These scripts installs PostgreSQL 10, PostGIS 2.4 and Oltpbenchmark on AWS Ubuntu 18.04 or 16.04 instances. It also upload benchmark runs and experiment data to server.
 
 ## Quickstart  
-Run TPC-H benchmark (Use `screen` in terminal)
+1. Download the script
 ```
 curl -L0k https://github.com/debjyoti385/workload_scripts/archive/master.zip -o master.zip
 sudo apt-get install unzip -y
 unzip -j master.zip
 rm master.zip
 chmod +x install.sh
-sudo ./install.sh -b=tpch 
+
+```
+2. Run Benchmarks: (Use `screen`)
+TPC-H Benchmark: Scale Factor 3 GB
+```
+screen -S install
+sudo ./install.sh -b=tpch --pgdata=/home/ubuntu/data/postgres_data --tpchdata=/home/ubuntu/data/tpch_data  --sf=3
 ```
 
-Run TPC-DS benchmark (Use `screen` in terminal)
+TPC-DS Benchmark: Scale Factor 5 GB
 ```
-curl -L0k https://github.com/debjyoti385/workload_scripts/archive/master.zip -o master.zip
-sudo apt-get install unzip -y
-unzip -j master.zip
-rm master.zip
-chmod +x install.sh
-sudo ./install.sh -b=tpcds
+screen -S install
+sudo ./install.sh -b=tpcds --pgdata=/home/ubuntu/data/postgres_data --tpcdsdata=/home/ubuntu/data/tpcds_data --sf=5
 ```
 
+Spatial Benchmark:
+```
+screen -S install
+sudo ./install.sh -b=spatial --pgdata=/home/ubuntu/data/postgres_data --spatialdata=/home/ubuntu/data/spatial_data
+```
 
 ## Options
 ```
@@ -29,7 +36,10 @@ sudo ./install.sh
     -h --help
     --bench=tpch                               # Benchmark: tpch (default), tpcds  
     --pgdata=/home/ubuntu/data/postgres_data   # PostgreSQL Data Directory (default)
-    --tpchdata=/home/ubuntu/data/tpch_data     # TPC-H Data Directory (default)
-    --tpcdsdata=/home/ubuntu/data/tpcds_data   # TPC-DS Data Directory (default)
+    --tpchdata=/home/ubuntu/data/tpch_data     # TPC-H Benchmark Data Directory (default)
+    --tpcdsdata=/home/ubuntu/data/tpcds_data   # TPC-DS Benchmark Data Directory (default)
+    --spatialdata=/users/deb/data/spatial_data # Spatial Benchmark Directory (default)
     --sf=1                                     # Scale Factor in GBs (default 1 GB)
+    --install=1                                # install=1 to install prerequisite  
+                                               # 0 only run benchmark skip install
 ```
