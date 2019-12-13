@@ -373,7 +373,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         fi
 
         git clone https://github.com/debjyoti385/jackpine.git
-        sudo sed -i 's,'"DATABASE_NAME"','"spatial_db"',' jackpine/configs/connection_postgresql_spatial.properties
+        sudo sed -i 's,'"DATABASE_NAME"','"spatial_db"',' jackpine/config/connection_postgresql_spatial.properties
         RESULT_DIR=jackpine/results
         mkdir -p $RESULT_DIR
         cd jackpine
