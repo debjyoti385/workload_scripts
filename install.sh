@@ -4,6 +4,8 @@ BENCHMARK_DATA_DIR="`pwd`/data/benchmark_data";
 LOGFILE="`pwd`/install.log";
 BENCHMARK="";
 SF=1
+OSM_DB='los_angeles_county'
+ITERATIONS=100
 INSTALL=1
 IMPORT=1
 
@@ -19,6 +21,7 @@ function usage()
     echo -e "\t--sf=$SF # default 1 GB "
     echo -e "\t--install=$INSTALL # 0 for run only"
     echo -e "\t--import=$IMPORT # 0 for no data import"
+    echo -e "\t--osmdb=$OSM_DB  # los_angeles_county/new_york_county/salt_lake_county"
     echo -e ""
 }
 
@@ -47,6 +50,12 @@ while [ "$1" != "" ]; do
             ;;
         --import)
             IMPORT=$VALUE
+            ;;
+        --osmdb)
+            OSM_DB=$VALUE
+            ;;
+        --epoch)
+            ITERATIONS=$VALUE
             ;;
         *)
             echo "ERROR: unknown parameter \"$PARAM\""
@@ -446,48 +455,57 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           echo "#######################################################################"
           sudo apt-get update >> $LOGFILE 2>&1
           sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
-          sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git -y >> $LOGFILE 2>&1
+          sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git osm2pgsql -y >> $LOGFILE 2>&1
 
           if [ "$IMPORT" = 1 ] ; then
               echo "#######################################################################"
               echo "DOWNLOADING OSM DATA"
               echo "#######################################################################"
+
               wget https://download.geofabrik.de/north-america/us/california-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/california-latest.osm.pbf
               wget https://download.geofabrik.de/north-america/us/new-york-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf
               wget https://download.geofabrik.de/north-america/us/utah-latest.osm.pbf -O ${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf
 
-              LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la_county.osm
-              NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/ny_county.osm
-              SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/sl_county.osm
-              LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la.osm
-              NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/nyc.osm
-              SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/slc.osm
-
-              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
-
-              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
-
-              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.260184 bottom=40.414864 right=-111.560498 top=40.921879 clipIncompleteEntities=true --write-xml file=$SL_COUNTY_OSM_FILE
-
-              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.6682 bottom=33.7036 right=-118.1553 top=34.3373 clipIncompleteEntities=true --write-xml file=$LA_CITY_OSM_FILE
-
-              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
-
-              osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
-
+              echo "#######################################################################"
               echo "IMPORT OSM DATA"
               echo "#######################################################################"
-
-              echo "IMPORT NEW YORK CITY"
-              echo "#######################################################################"
-              sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
-              sudo scripts/create_db_osm.sh new_york_county $NY_COUNTY_OSM_FILE
-              sudo scripts/create_db_osm.sh salt_lake_county $SL_COUNTY_OSM_FILE
-              sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
-              sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
-              sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
+              if [[ $OSM_DB == *"los_angeles_county"* ]]; then
+                  LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la_county.osm
+                  osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
+                  sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
+                  BBOX="-118.8927,33.6964,-117.5078,34.8309"       
+              elif [[ $OSM_DB == *"new_york_county"* ]]; then
+                  NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/ny_county.osm
+                  osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
+                  sudo scripts/create_db_osm.sh new_york_county $NY_COUNTY_OSM_FILE
+                  BBOX="-74.047225,40.679319,-73.906159,40.882463"
+              elif [[ $OSM_DB == *"salt_lake_county"* ]]; then
+                  SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/sl_county.osm
+                  osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.260184 bottom=40.414864 right=-111.560498 top=40.921879 clipIncompleteEntities=true --write-xml file=$SL_COUNTY_OSM_FILE
+                  sudo scripts/create_db_osm.sh salt_lake_county $SL_COUNTY_OSM_FILE
+                  BBOX="-112.260184,40.414864,-111.560498,40.921879"
+              elif [[ $OSM_DB == *"los_angeles_city"* ]]; then
+                  LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la.osm
+                  osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.6682 bottom=33.7036 right=-118.1553 top=34.3373 clipIncompleteEntities=true --write-xml file=$LA_CITY_OSM_FILE
+                  sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
+                  BBOX="-118.6682,33.7036,118.1553,34.3373"
+              elif [[ $OSM_DB == *"new_york_city"* ]]; then
+                  NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/nyc.osm
+                  osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
+                  sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
+                  BBOX="-74.25909,40.477399,-73.700181,40.916178"
+              elif [[ $OSM_DB == *"salt_lake_city"* ]]; then
+                  SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/slc.osm
+                  osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
+                  sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
+                  BBOX="-112.101607,40.699893,-111.739476,40.85297"
+              fi
           fi
 
+          git clone https://github.com/debjyoti385/osm_benchmark.git
+          cd osm_benchmark
+          sh prepare_routing.sh $OSM_DB
+          cd -
 
           sudo apt-get install python-pip -y > /dev/null 2>&1
           pip install argparse
@@ -508,9 +526,9 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
 
           sudo chmod +x scripts/os_stats.sh
 
-          FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.json"
-          FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.dbfeatures"
-          FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.machine"
+          FILENAME="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_SPATIAL_${INS_ID}.json"
+          FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_SPATIAL_${INS_ID}.dbfeatures"
+          FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_SPATIAL_${INS_ID}.machine"
 
 
           echo "RECONFIGURING postgres FOR STATS"
@@ -527,13 +545,13 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
 
           while :
           do
-              cd jackpine
-              chmod +x jackpine.sh
-              sudo -u postgres ./jackpine.sh -i connection_postgresql_spatial.properties
+              cd osm_benchmark
+              sh run_benchmark.sh $OSM_DB $BBOX $ITERATIONS
               cd -
+
               sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-              sudo -u postgres psql -t -A -d spatial_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
-              sudo -u postgres psql -t -A -d spatial_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
+              sudo -u postgres psql -t -A -d los_angeles_county -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
+              sudo -u postgres psql -t -A -d los_angeles_county -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
               sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
               curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
               curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
@@ -545,5 +563,5 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           done
 
 else
-  echo "NO BENCHMARK SPECIFIED, use --benchmark=[tpch/tpcds/spatial] as options"
+  echo "NO BENCHMARK SPECIFIED, use --benchmark=[tpch/tpcds/spatial/osm] as options"
 fi
