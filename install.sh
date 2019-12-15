@@ -66,6 +66,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
+mkdir -p $BENCHMARK_DATA_DIR
 
 if [ "$INSTALL" = 1 ] ; then
 
@@ -77,7 +78,6 @@ if [ "$INSTALL" = 1 ] ; then
     #sudo apt-get upgrade -y  >> $LOGFILE 2>&1
 
     mkdir -p $PG_DATA_DIR
-    mkdir -p $BENCHMARK_DATA_DIR
 
     echo "#######################################################################"
     echo "Install PostgreSQL 10"
