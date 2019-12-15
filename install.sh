@@ -530,8 +530,8 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           fi
 
           git clone https://github.com/debjyoti385/osm_benchmark.git
-          cd osm_benchmark
           chmod -R +x osm_benchmark
+          cd osm_benchmark
           ./prepare_routing.sh $OSM_DB
           cd -
 
