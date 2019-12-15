@@ -9,6 +9,14 @@ ITERATIONS=100
 INSTALL=1
 IMPORT=1
 
+LA_COUNTY_BBOX="-118.8927,33.6964,-117.5078,34.8309"
+NY_COUNTY_BBOX="-74.047225,40.679319,-73.906159,40.882463"
+SL_CIUNTY_BBOX="-112.260184,40.414864,-111.560498,40.921879"
+LA_BBOX="-118.6682,33.7036,118.1553,34.3373"
+NYC_BBOX="-74.25909,40.477399,-73.700181,40.916178"
+SLC_BBOX="-112.101607,40.699893,-111.739476,40.85297"
+
+
 function usage()
 {
     echo -e "INSTALL SCRIPT FOR postgresql AND benchmarks ON UBUNTU 16.04 AND 18.04"
@@ -483,39 +491,48 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
                   LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/la_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
-                  BBOX="-118.8927,33.6964,-117.5078,34.8309"
               elif [[ $OSM_DB == *"new_york_county"* ]]; then
                   NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/ny_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh new_york_county $NY_COUNTY_OSM_FILE
-                  BBOX="-74.047225,40.679319,-73.906159,40.882463"
               elif [[ $OSM_DB == *"salt_lake_county"* ]]; then
                   SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/sl_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.260184 bottom=40.414864 right=-111.560498 top=40.921879 clipIncompleteEntities=true --write-xml file=$SL_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh salt_lake_county $SL_COUNTY_OSM_FILE
-                  BBOX="-112.260184,40.414864,-111.560498,40.921879"
               elif [[ $OSM_DB == *"los_angeles_city"* ]]; then
                   LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/la.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.6682 bottom=33.7036 right=-118.1553 top=34.3373 clipIncompleteEntities=true --write-xml file=$LA_CITY_OSM_FILE
                   sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
-                  BBOX="-118.6682,33.7036,118.1553,34.3373"
               elif [[ $OSM_DB == *"new_york_city"* ]]; then
                   NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/nyc.osm
                   mkdir -p $NY_CITY_OSM_FILE
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
                   sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
-                  BBOX="-74.25909,40.477399,-73.700181,40.916178"
               elif [[ $OSM_DB == *"salt_lake_city"* ]]; then
                   SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/slc.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
                   sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
-                  BBOX="-112.101607,40.699893,-111.739476,40.85297"
               fi
+          fi
+
+          if [[ $OSM_DB == *"los_angeles_county"* ]]; then
+              BBOX=$LA_COUNTY_BBOX
+          elif [[ $OSM_DB == *"new_york_county"* ]]; then
+              BBOX=$NY_COUNTY_BBOX
+          elif [[ $OSM_DB == *"salt_lake_county"* ]]; then
+              BBOX=$SL_COUNTY_BBOX
+          elif [[ $OSM_DB == *"los_angeles_city"* ]]; then
+              BBOX=$LA_BBOX
+          elif [[ $OSM_DB == *"new_york_city"* ]]; then
+              BBOX=$NYC_BBOX
+          elif [[ $OSM_DB == *"salt_lake_city"* ]]; then
+              BBOX=$SLC_BBOX
           fi
 
           git clone https://github.com/debjyoti385/osm_benchmark.git
           cd osm_benchmark
-          sh prepare_routing.sh $OSM_DB
+          chmod -R +x osm_benchmark
+          ./prepare_routing.sh $OSM_DB
           cd -
 
           echo "" > /var/log/postgresql/postgresql-10-main.log
@@ -558,7 +575,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           while :
           do
               cd osm_benchmark
-              sh run_benchmark.sh $OSM_DB $BBOX $ITERATIONS
+              ./run_benchmark.sh $OSM_DB $BBOX $ITERATIONS
               cd -
 
               sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
