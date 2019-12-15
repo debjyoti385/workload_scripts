@@ -455,7 +455,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           echo "#######################################################################"
           sudo apt-get update >> $LOGFILE 2>&1
           sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
-          sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git osm2pgsql -y >> $LOGFILE 2>&1
+          sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git osmosis osm2pgsql -y >> $LOGFILE 2>&1
 
           if [ "$IMPORT" = 1 ] ; then
               echo "#######################################################################"
@@ -473,7 +473,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
                   LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
-                  BBOX="-118.8927,33.6964,-117.5078,34.8309"       
+                  BBOX="-118.8927,33.6964,-117.5078,34.8309"
               elif [[ $OSM_DB == *"new_york_county"* ]]; then
                   NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/ny_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
@@ -526,9 +526,9 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
 
           sudo chmod +x scripts/os_stats.sh
 
-          FILENAME="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_SPATIAL_${INS_ID}.json"
-          FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_SPATIAL_${INS_ID}.dbfeatures"
-          FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_SPATIAL_${INS_ID}.machine"
+          FILENAME="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_OSM_${INS_ID}.json"
+          FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_OSM_${INS_ID}.dbfeatures"
+          FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_OSM_${INS_ID}.machine"
 
 
           echo "RECONFIGURING postgres FOR STATS"
