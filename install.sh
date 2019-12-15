@@ -67,6 +67,20 @@ while [ "$1" != "" ]; do
 done
 
 mkdir -p $BENCHMARK_DATA_DIR
+echo "#######################################################################"
+echo "UPDATING DATABASE CONFIGURATION FILE"
+echo "#######################################################################"
+if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
+    sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
+fi
+if [ -f "configs/postgresql.conf" ]; then
+    echo "UPDATING postgresql.conf CONFIG FILE "
+    sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' configs/postgresql.conf
+    sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' configs/postgresql_execute.conf
+    sudo cp configs/postgresql.conf /etc/postgresql/10/main/postgresql.conf
+    echo "#######################################################################"
+fi
+
 
 if [ "$INSTALL" = 1 ] ; then
 
@@ -98,16 +112,6 @@ if [ "$INSTALL" = 1 ] ; then
         sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak
     fi
 
-    echo "UPDATING CONFIGURATION FILE"
-    if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
-        sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
-    fi
-    if [ -f "configs/postgresql.conf" ]; then
-        echo "UPDATING postgresql.conf CONFIG FILE "
-        sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' configs/postgresql.conf
-        sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' configs/postgresql_execute.conf
-        sudo cp configs/postgresql.conf /etc/postgresql/10/main/postgresql.conf
-    fi
     sudo usermod -a -G `id -g -n` postgres
     sudo chown -R  postgres:`id -g -n` $PG_DATA_DIR
     sudo systemctl start postgresql
@@ -470,32 +474,33 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
               echo "IMPORT OSM DATA"
               echo "#######################################################################"
               if [[ $OSM_DB == *"los_angeles_county"* ]]; then
-                  LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la_county.osm
+                  LA_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/la_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.8927 bottom=33.6964 right=-117.5078 top=34.8309 clipIncompleteEntities=true --write-xml file=$LA_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh los_angeles_county $LA_COUNTY_OSM_FILE
                   BBOX="-118.8927,33.6964,-117.5078,34.8309"
               elif [[ $OSM_DB == *"new_york_county"* ]]; then
-                  NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/ny_county.osm
+                  NY_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/ny_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.047225  bottom=40.679319 right=-73.906159 top=40.882463 clipIncompleteEntities=true --write-xml file=$NY_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh new_york_county $NY_COUNTY_OSM_FILE
                   BBOX="-74.047225,40.679319,-73.906159,40.882463"
               elif [[ $OSM_DB == *"salt_lake_county"* ]]; then
-                  SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/sl_county.osm
+                  SL_COUNTY_OSM_FILE=${BENCHMARK_DATA_DIR}/sl_county.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.260184 bottom=40.414864 right=-111.560498 top=40.921879 clipIncompleteEntities=true --write-xml file=$SL_COUNTY_OSM_FILE
                   sudo scripts/create_db_osm.sh salt_lake_county $SL_COUNTY_OSM_FILE
                   BBOX="-112.260184,40.414864,-111.560498,40.921879"
               elif [[ $OSM_DB == *"los_angeles_city"* ]]; then
-                  LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/la.osm
+                  LA_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/la.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/california-latest.osm.pbf --tf reject-relations  --bounding-box left=-118.6682 bottom=33.7036 right=-118.1553 top=34.3373 clipIncompleteEntities=true --write-xml file=$LA_CITY_OSM_FILE
                   sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
                   BBOX="-118.6682,33.7036,118.1553,34.3373"
               elif [[ $OSM_DB == *"new_york_city"* ]]; then
-                  NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/nyc.osm
+                  NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/nyc.osm
+                  mkdir -p $NY_CITY_OSM_FILE
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
                   sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
                   BBOX="-74.25909,40.477399,-73.700181,40.916178"
               elif [[ $OSM_DB == *"salt_lake_city"* ]]; then
-                  SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/osm/slc.osm
+                  SL_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/slc.osm
                   osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
                   sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
                   BBOX="-112.101607,40.699893,-111.739476,40.85297"
