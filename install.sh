@@ -66,6 +66,8 @@ while [ "$1" != "" ]; do
     shift
 done
 
+chmod -R +x scripts
+
 mkdir -p $BENCHMARK_DATA_DIR
 echo "#######################################################################"
 echo "UPDATING DATABASE CONFIGURATION FILE"
@@ -179,6 +181,8 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
         echo "#######################################################################"
         sudo -u postgres psql -f sqls/tpch_index.sql >> $LOGFILE 2>&1
     fi
+
+    echo "" > /var/log/postgresql/postgresql-10-main.log
 
     echo "RECONFIGURING postgres FOR STATS"
     echo "#######################################################################"
@@ -325,6 +329,8 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     echo "PRESS [CTRL+C] to stop.."
     echo "#######################################################################"
 
+    echo "" > /var/log/postgresql/postgresql-10-main.log
+
     while :
     do
         cd tpcds-kit/tools
@@ -430,7 +436,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         echo "PRESS [CTRL+C] to stop.."
         echo "#######################################################################"
 
-
+        echo "" > /var/log/postgresql/postgresql-10-main.log
 
         while :
         do
@@ -512,6 +518,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
           sh prepare_routing.sh $OSM_DB
           cd -
 
+          echo "" > /var/log/postgresql/postgresql-10-main.log
           sudo apt-get install python-pip -y > /dev/null 2>&1
           pip install argparse
           COUNTER=1
