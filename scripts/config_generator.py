@@ -81,12 +81,8 @@ def get_knobs_readable(values, types):
 
 
 def main(args):
-
-    if (len(sys.argv) != 4):
-        raise Exception("Usage: python3 config_generator.py [Samples Count] [Knob Path] [Save Path]")
-
-    knob_path = args[2]
-    save_path = args[3]
+    knob_path = args.input
+    save_path = args.output
     with open(knob_path, "r") as f:
         tuning_knobs = json.load(f)
 
@@ -101,7 +97,7 @@ def main(args):
         minvals.append(get_knob_raw(knob['tuning_range']['minval'], knob['type']))
         types.append(knob['type'])
 
-    nsamples = int(args[1])
+    nsamples = int(args.n)
     nfeats = len(tuning_knobs)
     samples = lhs(nfeats, samples=nsamples, criterion='maximin')
     maxvals = np.array(maxvals)
@@ -118,9 +114,20 @@ def main(args):
     for sidx in range(nsamples):
         for fidx in range(nfeats):
             config["recommendation"][names[fidx]] = samples_readable[sidx][fidx]
-        with open(os.path.join(save_path, 'config_' + str(sidx)), 'w+') as f:
+        with open(os.path.join(save_path, 'config_' + str(sidx) + ".config"), 'w+') as f:
             f.write(json.dumps(config))
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    parser = argparse.ArgumentParser(description='Generate configs',
+                                     epilog='',
+                                     prog='"Usage: python config_generator.py -n [Samples Count] -i [Knob Path] -o [Save Path]')
+    parser.add_argument("-i", "--input", required=True,
+                        help="Input knobs json file")
+    parser.add_argument("-o", "--output", required=True,
+                    help="Input knobs json file")
+    parser.add_argument("-n", "--n", type=int, default=1000,
+                    help="number of config to generate")
+
+    args = parser.parse_args()
+    main(args)

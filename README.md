@@ -9,7 +9,6 @@ sudo apt-get install bsdtar -y
 bsdtar -xf master.zip -s'|[^/]*/||'
 rm master.zip
 chmod +x install.sh
-
 ```
 2. Run Benchmarks: (Use `screen`)
 
