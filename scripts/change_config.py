@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 def main(args):
     import glob, os
+    pwd = os.getcwd()
     os.chdir(args.input)
     config_file =  random.choice(glob.glob("*.config"))
 
@@ -16,6 +17,8 @@ def main(args):
         conf = json.load(f,
                          encoding="UTF-8",
                          object_pairs_hook=OrderedDict)
+
+    os.chdir(pwd)
     conf = conf['recommendation']
     with open(args.config, "r+") as postgresqlconf:
         lines = postgresqlconf.readlines()
