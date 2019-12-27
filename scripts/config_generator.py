@@ -3,7 +3,8 @@
 #
 # Copyright (c) 2017-18, Carnegie Mellon University Database Group
 #
-
+import argparse
+import pathlib2
 import sys
 import json
 import os
@@ -83,6 +84,9 @@ def get_knobs_readable(values, types):
 def main(args):
     knob_path = args.input
     save_path = args.output
+
+    pathlib2.Path(save_path).mkdir(parents=True, exist_ok=True)
+
     with open(knob_path, "r") as f:
         tuning_knobs = json.load(f)
 
