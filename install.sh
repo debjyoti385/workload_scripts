@@ -38,7 +38,7 @@ function usage()
     echo -e ""
 }
 
-prepare_rerun()
+function prepare_rerun()
 {
     sudo systemctl stop postgresql
     echo "CHANGE DATABASE CONFIGS"
@@ -48,7 +48,7 @@ prepare_rerun()
     sudo systemctl start postgresql
 }
 
-update_log()
+function update_log()
 {
     sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
     sudo -u postgres psql -t -A -d $1 -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
@@ -166,6 +166,9 @@ if [ "$INSTALL" = 1 ] ; then
     sudo apt install postgis -y >> $LOGFILE 2>&1
     sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
     sudo -u postgres psql -f sqls/postgis_install.sql >> $LOGFILE 2>&1
+
+    sudo apt-get install python-pip -y > /dev/null 2>&1
+    pip install argparse hurry.filesize pyDOE pathlib2 numpy >> $LOGFILE 2>&1
 fi
 
 ###########################################################
@@ -234,8 +237,6 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> $LOGFILE 2>&1 & disown
 
-    sudo apt-get install python-pip -y > /dev/null 2>&1
-    pip install argparse
     COUNTER=1
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
@@ -443,7 +444,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
 
 
     RCOUNTER=0
-    while:
+    while :
     do
         MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
         PROC=`nproc`
@@ -570,7 +571,7 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
     cd -
 
     rerun_counter=0
-    while:
+    while :
     do
         if [[ $OSM_DB == *"los_angeles_county"* ]]; then
           BBOX=$LA_COUNTY_BBOX
