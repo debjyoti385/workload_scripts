@@ -334,58 +334,73 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
 
     sudo apt-get install python-pip -y > /dev/null 2>&1
     pip install argparse
-    COUNTER=1
-    MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
-    PROC=`nproc`
 
-    if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
-        TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
-        INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
-    elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
-        TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
-        INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
-    else
-        TIER="custom"
-        INS_ID=`openssl rand -base64 3`
-    fi
-
-    sudo chmod +x scripts/os_stats.sh
-
-    FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
-    FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.dbfeatures"
-    FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.machine"
-
-    sudo -u postgres psql tpcds_db -f sqls/tpcds_index.sql >> $LOGFILE 2>&1
-    echo "RECONFIGURING postgres FOR STATS"
-    echo "#######################################################################"
-    sudo systemctl stop postgresql
-    sleep 5
-    sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
-    sudo systemctl start postgresql
-    sleep 5
-    echo "#######################################################################"
-    echo "RUNNING TPC-DS AND COLLECTING DATA AFTER EVERY BATCH RUN IN $FILENAME"
-    echo "PRESS [CTRL+C] to stop.."
-    echo "#######################################################################"
-
-    echo "" > /var/log/postgresql/postgresql-10-main.log
-
+    RCOUNTER=0
     while :
     do
-        cd tpcds-kit/tools
-        ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> $LOGFILE 2>&1
-        sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1
-        cd - > /dev/null 2>&1
-        sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-        sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
-        sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
-        sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
-        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-        curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-        curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-        echo -ne "BATCH: $COUNTER"\\r
-        let COUNTER=COUNTER+1
-        sleep 2
+        COUNTER=1
+        MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
+        PROC=`nproc`
+
+        if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
+            TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+            INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+        elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+            TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
+            INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
+        else
+            TIER="custom"
+            INS_ID=`openssl rand -base64 3`
+        fi
+
+        sudo chmod +x scripts/os_stats.sh
+
+        FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.json"
+        FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.dbfeatures"
+        FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.machine"
+
+        sudo -u postgres psql tpcds_db -f sqls/tpcds_index.sql >> $LOGFILE 2>&1
+        echo "RECONFIGURING postgres FOR STATS"
+        echo "#######################################################################"
+        sudo systemctl stop postgresql
+        sleep 5
+        sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
+        sudo systemctl start postgresql
+        sleep 5
+        echo "#######################################################################"
+        echo "RUNNING TPC-DS AND COLLECTING DATA AFTER EVERY BATCH RUN IN $FILENAME"
+        echo "PRESS [CTRL+C] to stop.."
+        echo "#######################################################################"
+
+        echo "" > /var/log/postgresql/postgresql-10-main.log
+
+        while :
+        do
+            cd tpcds-kit/tools
+            ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> $LOGFILE 2>&1
+            sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1
+            cd - > /dev/null 2>&1
+            update_log tpcds_db
+            # sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
+            # sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
+            # sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
+            # sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
+            curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+            curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+            curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+            echo -ne "BATCH: $COUNTER"\\r
+            if [ $COUNTER -lt $ITERATIONS ]; then
+                break
+            fi
+            let COUNTER=COUNTER+1
+            sleep 2
+        done
+
+        if [ $RCOUNTER -lt $RERUN ]; then
+            break
+        fi
+        let RCOUNTER=RCOUNTER+1
+        prepare_rerun
     done
 
 ###########################################################
