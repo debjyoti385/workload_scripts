@@ -1,0 +1,164 @@
+[
+    {
+        "name": "bgwriter_lru_maxpages",
+        "tuning_range": {
+            "minval": 0,
+            "maxval": 1000
+        },
+        "default": 10,
+        "type": "integer"
+    },
+    {
+        "name": "bgwriter_delay",
+        "tuning_range": {
+            "minval": 10,
+            "maxval": 10000
+        },
+        "default": 10,
+        "type": "integer"
+    },
+    {
+        "name": "bgwriter_lru_multiplier",
+        "tuning_range": {
+            "minval": 0.1,
+            "maxval": 10
+        },
+        "default": 2,
+        "type": "float"
+    },
+    {
+        "name": "checkpoint_completion_target",
+        "tuning_range": {
+            "minval": 0.01,
+            "maxval": 1
+        },
+        "default": 0.5,
+        "type": "float"
+    },
+    {
+        "name": "checkpoint_timeout",
+        "tuning_range": {
+            "minval": "10ms",
+            "maxval": "10min"
+        },
+        "default": "300ms",
+        "type": "time"
+    },
+    {
+        "name": "cpu_tuple_cost",
+        "tuning_range": {
+            "minval": 0.01,
+            "maxval": 10
+        },
+        "default": 0.01,
+        "type": "float"
+    },
+    {
+        "name": "deadlock_timeout",
+        "tuning_range": {
+            "minval": "10ms",
+            "maxval": "10min"
+        },
+        "default": "1000ms",
+        "type": "time"
+    },
+    {
+        "name": "default_statistics_target",
+        "tuning_range": {
+            "minval": 1,
+            "maxval": 10000
+        },
+        "default": 100,
+        "type": "integer"
+    },
+    {
+        "name": "effective_cache_size",
+        "tuning_range": {
+            "minval": "512MB",
+            "maxval": "16GB"
+        },
+        "default": "4GB",
+        "type": "bytes"
+    },
+    {
+        "name": "effective_io_concurrency",
+        "tuning_range": {
+            "minval": "1",
+            "maxval": "100"
+        },
+        "default": "1",
+        "type": "integer"
+    },
+    {
+        "name": "from_collapse_limit",
+        "tuning_range": {
+            "minval": "1",
+            "maxval": "2147483647"
+        },
+        "default": "8",
+        "type": "integer"
+    },
+    {
+        "name": "join_collapse_limit",
+        "tuning_range": {
+            "minval": "1",
+            "maxval": "2147483647"
+        },
+        "default": "8",
+        "type": "integer"
+    },
+    {
+        "name": "maintenance_work_mem",
+        "tuning_range": {
+            "minval": "1MB",
+            "maxval": "16GB"
+        },
+        "default": "64MB",
+        "type": "bytes"
+    },
+    {
+        "name": "max_stack_depth",
+        "tuning_range": {
+            "minval": "1MB",
+            "maxval": "16GB"
+        },
+        "default": "2MB",
+        "type": "bytes"
+    },
+    {
+        "name": "random_page_cost",
+        "tuning_range": {
+            "minval": 1,
+            "maxval": 10000
+        },
+        "default": 4,
+        "type": "float"
+    },
+    {
+        "name": "shared_buffers",
+        "tuning_range": {
+            "minval": "1MB",
+            "maxval": "32GB"
+        },
+        "default": "512MB",
+        "type": "bytes"
+    },
+    {
+        "name": "wal_buffers",
+        "tuning_range": {
+            "minval": "1MB",
+            "maxval": "32GB"
+        },
+        "default": "4MB",
+        "type": "bytes"
+    },
+    {
+        "name": "work_mem",
+        "tuning_range": {
+            "minval": "1MB",
+            "maxval": "32GB"
+        },
+        "default": "4MB",
+        "type": "bytes"
+    }
+]
