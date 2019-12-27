@@ -22,7 +22,7 @@ NYC_BBOX="-74.25909,40.477399,-73.700181,40.916178"
 SLC_BBOX="-112.101607,40.699893,-111.739476,40.85297"
 
 
-function usage()
+usage()
 {
     echo -e "INSTALL SCRIPT FOR postgresql AND benchmarks ON UBUNTU 16.04 AND 18.04"
     echo -e ""
@@ -38,7 +38,7 @@ function usage()
     echo -e ""
 }
 
-function prepare_rerun()
+prepare_rerun()
 {
     sudo systemctl stop postgresql
     echo "CHANGE DATABASE CONFIGS"
@@ -48,7 +48,7 @@ function prepare_rerun()
     sudo systemctl start postgresql
 }
 
-function update_log()
+update_log()
 {
     sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
     sudo -u postgres psql -t -A -d $1 -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
@@ -104,6 +104,8 @@ while [ "$1" != "" ]; do
 done
 
 chmod -R +x scripts
+sudo apt-get install python-pip -y > /dev/null 2>&1
+pip install argparse hurry.filesize pyDOE pathlib2 numpy >> $LOGFILE 2>&1
 python scripts/config_generator.py -i configs/postgres_knobs.json -o dbconfigs -n 1000
 
 mkdir -p $BENCHMARK_DATA_DIR
@@ -166,9 +168,6 @@ if [ "$INSTALL" = 1 ] ; then
     sudo apt install postgis -y >> $LOGFILE 2>&1
     sudo apt install postgresql-10-pgrouting -y >> $LOGFILE 2>&1
     sudo -u postgres psql -f sqls/postgis_install.sql >> $LOGFILE 2>&1
-
-    sudo apt-get install python-pip -y > /dev/null 2>&1
-    pip install argparse hurry.filesize pyDOE pathlib2 numpy >> $LOGFILE 2>&1
 fi
 
 ###########################################################
