@@ -256,7 +256,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
         INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id | tail -c4`
     else
         TIER="custom"
-        INS_ID=`openssl rand -base64 3`
+        INS_ID=`openssl rand -base64 3 | sed 's/[^a-zA-Z0-9]//g'`
     fi
 
 
@@ -353,7 +353,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
             INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
         else
             TIER="custom"
-            INS_ID=`openssl rand -base64 3`
+            INS_ID=`openssl rand -base64 3 | sed 's/[^a-zA-Z0-9]//g'`
         fi
 
         sudo chmod +x scripts/os_stats.sh
@@ -468,7 +468,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
             INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
         else
             TIER="custom"
-            INS_ID=`openssl rand -base64 3`
+            INS_ID=`openssl rand -base64 3 | sed 's/[^a-zA-Z0-9]//g'`
         fi
 
         sudo chmod +x scripts/os_stats.sh
@@ -601,7 +601,7 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
           INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
         else
           TIER="custom"
-          INS_ID=`openssl rand -base64 3`
+          INS_ID=`openssl rand -base64 3 | sed 's/[^a-zA-Z0-9]//g'`
         fi
 
         sudo chmod +x scripts/os_stats.sh
