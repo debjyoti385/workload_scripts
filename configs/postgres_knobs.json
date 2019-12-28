@@ -119,8 +119,8 @@
     {
         "name": "max_stack_depth",
         "tuning_range": {
-            "minval": "1MB",
-            "maxval": "16GB"
+            "minval": "10kB",
+            "maxval": "6000kB"
         },
         "default": "2MB",
         "type": "bytes"
@@ -147,7 +147,7 @@
         "name": "wal_buffers",
         "tuning_range": {
             "minval": "1MB",
-            "maxval": "32GB"
+            "maxval": "2GB"
         },
         "default": "4MB",
         "type": "bytes"

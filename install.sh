@@ -48,6 +48,18 @@ prepare_rerun()
     sudo systemctl start postgresql
 }
 
+configure_for_execution()
+{
+    echo "#######################################################################"
+    echo "RECONFIGURING postgres FOR STATS"
+    echo "#######################################################################"
+    sudo systemctl stop postgresql
+    sleep 5
+    sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
+    sudo systemctl start postgresql
+    sleep 5
+}
+
 update_log()
 {
     sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
@@ -224,13 +236,8 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
 
     echo "" > /var/log/postgresql/postgresql-10-main.log
 
-    echo "RECONFIGURING postgres FOR STATS"
-    echo "#######################################################################"
-    sudo systemctl stop postgresql
-    sleep 5
-    sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
-    sudo systemctl start postgresql
-    sleep 5
+    configure_for_execution
+
     echo "#######################################################################"
     echo "EXECUTING TPCH QUERIES "
     echo "#######################################################################"
@@ -267,13 +274,9 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     while :
     do
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-        sudo -u postgres psql -t -A -d tpch_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
-        sudo -u postgres psql -t -A -d tpch_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
-        sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
-        curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-        curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-        curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
 
+        update_log tpch_db
+        
         echo -ne "UPLOAD: $COUNTER"\\r
         let COUNTER=COUNTER+1
         sleep 300
@@ -359,13 +362,11 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
         FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_TPCDS_${INS_ID}.machine"
 
         sudo -u postgres psql tpcds_db -f sqls/tpcds_index.sql >> $LOGFILE 2>&1
-        echo "RECONFIGURING postgres FOR STATS"
-        echo "#######################################################################"
-        sudo systemctl stop postgresql
-        sleep 5
-        sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
-        sudo systemctl start postgresql
-        sleep 5
+
+        if [ $RCOUNTER -eq 0 ]; then
+            configure_for_execution
+        fi
+
         echo "#######################################################################"
         echo "RUNNING TPC-DS AND COLLECTING DATA AFTER EVERY BATCH RUN IN $FILENAME"
         echo "PRESS [CTRL+C] to stop.."
@@ -379,23 +380,18 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
             ./dsqgen -DIRECTORY ../query_templates -INPUT ../query_templates/templates.lst -VERBOSE Y -QUALIFY Y -SCALE 1 -DIALECT netezza -OUTPUT_DIR $TPCDS_QUERIES -RNGSEED `date +%s` >> $LOGFILE 2>&1
             sudo -u postgres psql tpcds_db -f $TPCDS_QUERIES/query_0.sql >> $LOGFILE 2>&1
             cd - > /dev/null 2>&1
+
             update_log tpcds_db
-            # sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-            # sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
-            # sudo -u postgres psql -t -A -d tpcds_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
-            # sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
-            curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-            curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-            curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
+
             echo -ne "BATCH: $COUNTER"\\r
-            if [ $COUNTER -lt $ITERATIONS ]; then
+            if [ $COUNTER -gt $ITERATIONS ]; then
                 break
             fi
             let COUNTER=COUNTER+1
             sleep 2
         done
 
-        if [ $RCOUNTER -lt $RERUN ]; then
+        if [ $RCOUNTER -gt $RERUN ]; then
             break
         fi
         let RCOUNTER=RCOUNTER+1
@@ -480,14 +476,10 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
         FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.dbfeatures"
         FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_SPATIAL_${INS_ID}.machine"
 
+        if [ $RCOUNTER -eq 0 ]; then
+            configure_for_execution
+        fi
 
-        echo "RECONFIGURING postgres FOR STATS"
-        echo "#######################################################################"
-        sudo systemctl stop postgresql
-        sleep 5
-        sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
-        sudo systemctl start postgresql
-        sleep 5
         echo "#######################################################################"
         echo "RUNNING SPATIAL BENCHMARK AND COLLECTING DATA IN $FILENAME"
         echo "PRESS [CTRL+C] to stop.."
@@ -502,24 +494,18 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
             chmod +x jackpine.sh
             sudo -u postgres ./jackpine.sh -i connection_postgresql_spatial.properties
             cd -
-            # sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-            # sudo -u postgres psql -t -A -d spatial_db -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
-            # sudo -u postgres psql -t -A -d spatial_db -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
-            # sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
+
             update_log spatial_db
-            curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-            curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-            curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
 
             echo -ne "UPLOAD: $COUNTER"\\r
-            if [ $COUNTER -lt $ITERATIONS ]; then
+            if [ $COUNTER -gt $ITERATIONS ]; then
                 break
             fi
             let COUNTER=COUNTER+1
             sleep 5
         done
 
-        if [ $RCOUNTER -lt $RERUN ]; then
+        if [ $RCOUNTER -gt $RERUN ]; then
             break
         fi
         let RCOUNTER=RCOUNTER+1
@@ -574,15 +560,13 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
           osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/utah-latest.osm.pbf --tf reject-relations  --bounding-box left=-112.101607 bottom=40.699893 right=-111.739476 top=40.85297 clipIncompleteEntities=true --write-xml file=$SL_CITY_OSM_FILE
           sudo scripts/create_db_osm.sh salt_lake_city $SL_CITY_OSM_FILE
         fi
+
+        git clone https://github.com/debjyoti385/osm_benchmark.git
+        chmod -R +x osm_benchmark
+        cd osm_benchmark
+        ./prepare_routing.sh $OSM_DB
+        cd -
     fi
-
-
-
-    git clone https://github.com/debjyoti385/osm_benchmark.git
-    chmod -R +x osm_benchmark
-    cd osm_benchmark
-    ./prepare_routing.sh $OSM_DB
-    cd -
 
     rerun_counter=0
     while :
@@ -626,13 +610,9 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${OSM_DB}_OSM_${INS_ID}.machine"
 
 
-        echo "RECONFIGURING postgres FOR STATS"
-        echo "#######################################################################"
-        sudo systemctl stop postgresql
-        sleep 5
-        sudo cp configs/postgresql_execute.conf /etc/postgresql/10/main/postgresql.conf
-        sudo systemctl start postgresql
-        sleep 5
+        if [ $COUNTER -eq 0 ]; then
+            configure_for_execution
+        if
         echo "#######################################################################"
         echo "RUNNING SPATIAL BENCHMARK AND COLLECTING DATA IN $FILENAME"
         echo "PRESS [CTRL+C] to stop.."
@@ -645,17 +625,10 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
             cd -
 
             update_log $OSM_DB
-            # sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
-            # sudo -u postgres psql -t -A -d los_angeles_county -c "SELECT json_agg(json_build_object('relname',relname,'attname',attname,'reltuples', reltuples,'relpages', relpages,'relfilenode', relfilenode,'relam', relam,'n_distinct', n_distinct,'distinct_values',  CASE WHEN n_distinct > 0 THEN n_distinct ELSE -1.0 * n_distinct *reltuples END, 'selectivity', CASE WHEN n_distinct =0 THEN 0 WHEN n_distinct > 0 THEN reltuples/n_distinct ELSE -1.0 / n_distinct END, 'avg_width', avg_width, 'correlation', correlation)) FROM pg_class, pg_stats WHERE relname=tablename  and schemaname='public';"  > $FILENAME_DB
-            # sudo -u postgres psql -t -A -d los_angeles_county -c "SELECT json_agg(json_build_object('name',name, 'setting', setting, 'unit', unit, 'min_val', min_val, 'max_val',max_val,'vartype', vartype)) FROM pg_settings where name in ('checkpoint_completion_target','bgwriter_lru_multiplier','random_page_cost','max_stack_depth','work_mem','effective_cache_size','bgwriter_lru_maxpages','join_collapse_limit','checkpoint_timeout','effective_io_concurrency','bgwriter_delay','maintenance_work_mem','from_collapse_limit','default_statistics_target','wal_buffers','cpu_tuple_cost','shared_buffers','deadlock_timeout');"  >> $FILENAME_DB
-            # sudo scripts/os_stats.sh > ${FILENAME_MACHINE}
-            # curl -F "file=@${FILENAME}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-            # curl -F "file=@${FILENAME_DB}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
-            # curl -F "file=@${FILENAME_MACHINE}" http://db03.cs.utah.edu:9000/ -v >> $LOGFILE 2>&1
 
             echo -ne "UPLOAD: $COUNTER"\\r
 
-            if [ $COUNTER -lt $RERUN ]; then
+            if [ $COUNTER -gt $RERUN ]; then
                 break
             fi
             let COUNTER=COUNTER+1
