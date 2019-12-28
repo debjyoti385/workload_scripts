@@ -568,6 +568,7 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         cd -
     fi
 
+    COUNTER=0
     while :
     do
         if [[ $OSM_DB == *"los_angeles_county"* ]]; then
@@ -587,7 +588,7 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         echo "" > /var/log/postgresql/postgresql-10-main.log
         sudo apt-get install python-pip -y > /dev/null 2>&1
         pip install argparse
-        COUNTER=0
+
         MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
         PROC=`nproc`
 
@@ -625,14 +626,12 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
 
             update_log $OSM_DB
 
-            echo -ne "UPLOAD: $COUNTER"\\r
-
-            if [ $COUNTER -gt $RERUN ]; then
-                break
-            fi
-            let COUNTER=COUNTER+1
         done
-
+        echo -ne "UPLOAD: $COUNTER"\\r
+        if [ $COUNTER -gt $RERUN ]; then
+            break
+        fi
+        let COUNTER=COUNTER+1
         prepare_rerun
     done
 
