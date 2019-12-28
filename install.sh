@@ -42,6 +42,7 @@ prepare_rerun()
 {
     sudo systemctl stop postgresql
     echo "CHANGE DATABASE CONFIGS"
+    cp /var/log/postgresql/postgresql-10-main.log last_postgresql.log
     echo "" > /var/log/postgresql/postgresql-10-main.log
     python scripts/change_config.py -i dbconfigs --config /etc/postgresql/10/main/postgresql.conf
     sleep 5
@@ -618,15 +619,12 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         echo "PRESS [CTRL+C] to stop.."
         echo "#######################################################################"
 
-        while :
-        do
-            cd osm_benchmark
-              ./run_benchmark.sh $OSM_DB $BBOX $ITERATIONS
-            cd -
+        cd osm_benchmark
+          ./run_benchmark.sh $OSM_DB $BBOX $ITERATIONS
+        cd -
 
-            update_log $OSM_DB
+        update_log $OSM_DB
 
-        done
         echo -ne "UPLOAD: $COUNTER"\\r
         if [ $COUNTER -gt $RERUN ]; then
             break
