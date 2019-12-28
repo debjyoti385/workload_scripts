@@ -243,7 +243,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
     echo "#######################################################################"
     cd oltpbench && ./oltpbenchmark --execute=true -c tpch_config.xml -b tpch >> $LOGFILE 2>&1 & disown
 
-    COUNTER=1
+    COUNTER=0
     MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
     PROC=`nproc`
 
@@ -276,7 +276,7 @@ if [ "$BENCHMARK" = "TPCH" ] || [ "$BENCHMARK" = "tpch" ] ; then
         sudo python extract_plans.py --input /var/log/postgresql/postgresql-10-main.log --type json > $FILENAME
 
         update_log tpch_db
-        
+
         echo -ne "UPLOAD: $COUNTER"\\r
         let COUNTER=COUNTER+1
         sleep 300
@@ -340,7 +340,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
     RCOUNTER=0
     while :
     do
-        COUNTER=1
+        COUNTER=0
         MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
         PROC=`nproc`
 
@@ -568,7 +568,6 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         cd -
     fi
 
-    rerun_counter=0
     while :
     do
         if [[ $OSM_DB == *"los_angeles_county"* ]]; then
@@ -588,7 +587,7 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         echo "" > /var/log/postgresql/postgresql-10-main.log
         sudo apt-get install python-pip -y > /dev/null 2>&1
         pip install argparse
-        COUNTER=1
+        COUNTER=0
         MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
         PROC=`nproc`
 
@@ -612,7 +611,7 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
 
         if [ $COUNTER -eq 0 ]; then
             configure_for_execution
-        if
+        fi
         echo "#######################################################################"
         echo "RUNNING SPATIAL BENCHMARK AND COLLECTING DATA IN $FILENAME"
         echo "PRESS [CTRL+C] to stop.."
@@ -632,8 +631,9 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
                 break
             fi
             let COUNTER=COUNTER+1
-            prepare_rerun
         done
+
+        prepare_rerun
     done
 
 else
