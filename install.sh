@@ -125,15 +125,15 @@ mkdir -p $BENCHMARK_DATA_DIR
 echo "#######################################################################"
 echo "UPDATING DATABASE CONFIGURATION FILE"
 echo "#######################################################################"
-if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
-    sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
-fi
 if [ -f "configs/postgresql.conf" ]; then
     echo "UPDATING postgresql.conf CONFIG FILE "
     sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' configs/postgresql.conf
     sudo sed -i 's,'"PG_DATA_DIR"','"$PG_DATA_DIR"',' configs/postgresql_execute.conf
-    sudo cp configs/postgresql.conf /etc/postgresql/10/main/postgresql.conf
     echo "#######################################################################"
+fi
+if [ -f "/etc/postgresql/10/main/postgresql.conf" ]; then
+    sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
+    sudo cp configs/postgresql.conf /etc/postgresql/10/main/postgresql.conf
 fi
 
 
@@ -170,7 +170,7 @@ if [ "$INSTALL" = 1 ] ; then
     sudo usermod -a -G `id -g -n` postgres
     sudo chown -R  postgres:`id -g -n` $PG_DATA_DIR
     sudo systemctl start postgresql
-
+    sleep 2
 
     echo "#######################################################################"
     echo "INSTALLING PostGIS"
@@ -523,7 +523,11 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
     sudo apt-get install software-properties-common python-software-properties -y  >> $LOGFILE 2>&1
     sudo apt-get install openjdk-8-jre  openjdk-8-jdk ant ivy git osmosis osm2pgsql -y >> $LOGFILE 2>&1
 
+
+
     if [ "$IMPORT" = 1 ] ; then
+        echo "RESTARTTING DATABASE BEFORE IMPORTING"
+        sudo systemctl restart postgresql
         echo "#######################################################################"
         echo "DOWNLOADING OSM DATA"
         echo "#######################################################################"

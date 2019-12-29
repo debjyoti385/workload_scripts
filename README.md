@@ -4,8 +4,9 @@ These scripts installs PostgreSQL 10, PostGIS 2.4 and Oltpbenchmark on AWS Ubunt
 ## Quickstart  
 1. Download the script
 ```
-curl -L0k https://github.com/debjyoti385/workload_scripts/archive/master.zip -o master.zip
+sudo apt-get update
 sudo apt-get install bsdtar -y
+curl -L0k https://github.com/debjyoti385/workload_scripts/archive/master.zip -o master.zip
 bsdtar -xf master.zip -s'|[^/]*/||'
 rm master.zip
 chmod +x install.sh
