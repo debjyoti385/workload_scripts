@@ -557,7 +557,6 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
           sudo scripts/create_db_osm.sh los_angeles_city $LA_CITY_OSM_FILE
         elif [[ $OSM_DB == *"new_york_city"* ]]; then
           NY_CITY_OSM_FILE=${BENCHMARK_DATA_DIR}/nyc.osm
-          mkdir -p $NY_CITY_OSM_FILE
           osmosis --read-pbf file=${BENCHMARK_DATA_DIR}/new-york-latest.osm.pbf --tf reject-relations  --bounding-box left=-74.25909  bottom=40.477399 right=-73.700181 top=40.916178 clipIncompleteEntities=true --write-xml file=$NY_CITY_OSM_FILE
           sudo scripts/create_db_osm.sh new_york_city $NY_CITY_OSM_FILE
         elif [[ $OSM_DB == *"salt_lake_city"* ]]; then

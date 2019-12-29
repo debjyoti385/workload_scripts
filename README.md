@@ -52,3 +52,8 @@ sudo ./install.sh
     --osmdb=los_angeles_county                 # options los_angeles_county, new_york_county, salt_lake_county
                                                # los_angeles_city, new_york_city, salt_lake_city
 ```
+
+More Run Examples:
+```
+sudo ./install.sh --benchmark=osm --pgdata=/dev/shm/data/postgres_data --data=/dev/data/osm_data --osmdb=los_angeles_county  --rerun=500  --install=1 --import=1 --epoch=100
+```
