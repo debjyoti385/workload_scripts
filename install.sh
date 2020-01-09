@@ -420,7 +420,7 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
 
         echo "EXTRACTING SPATIAL DATA"
         echo "#######################################################################"
-        unzip spatial_benchmark_sql.zip -d $BENCHMARK_DATA_DIR >> $LOGFILE 2>&1
+        unzip -o spatial_benchmark_sql.zip -d $BENCHMARK_DATA_DIR >> $LOGFILE 2>&1
         sudo chmod -R 777 $BENCHMARK_DATA_DIR
         rm spatial_benchmark_sql.zip
 
