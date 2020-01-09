@@ -496,15 +496,15 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
             sudo -u postgres ./jackpine.sh -i connection_postgresql_spatial.properties
             cd -
 
-            update_log spatial_db
-
-            echo -ne "UPLOAD: $COUNTER"\\r
             if [ $COUNTER -gt $ITERATIONS ]; then
                 break
             fi
             let COUNTER=COUNTER+1
             sleep 5
         done
+
+        update_log spatial_db
+        echo -ne "UPLOAD: $RCOUNTER"\\r
 
         if [ $RCOUNTER -gt $RERUN ]; then
             break
