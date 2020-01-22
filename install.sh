@@ -391,10 +391,11 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
             update_log tpcds_db
 
             echo -ne "BATCH: $COUNTER"\\r
-            if [ $COUNTER -gt $ITERATIONS ]; then
+
+            let COUNTER=COUNTER+1
+            if [ $COUNTER -eq $ITERATIONS ]; then
                 break
             fi
-            let COUNTER=COUNTER+1
             sleep 2
         done
 
@@ -502,10 +503,10 @@ elif [ "$BENCHMARK" = "SPATIAL" ] || [ "$BENCHMARK" = "spatial" ] ; then
             sudo -u postgres ./jackpine.sh -i connection_postgresql_spatial.properties
             cd -
 
-            if [ $COUNTER -gt $ITERATIONS ]; then
+            let COUNTER=COUNTER+1
+            if [ $COUNTER -eq $ITERATIONS ]; then
                 break
             fi
-            let COUNTER=COUNTER+1
             sleep 5
         done
 
@@ -745,10 +746,10 @@ elif [ "$BENCHMARK" = "JOIN" ] || [ "$BENCHMARK" = "join" ] ; then
             update_log join_db
 
             echo -ne "BATCH: $COUNTER"\\r
-            if [ $COUNTER -gt $ITERATIONS ]; then
+            let COUNTER=COUNTER+1
+            if [ $COUNTER -eq $ITERATIONS ]; then
                 break
             fi
-            let COUNTER=COUNTER+1
             sleep 2
         done
 
