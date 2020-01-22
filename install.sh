@@ -671,7 +671,7 @@ elif [ "$BENCHMARK" = "JOIN" ] || [ "$BENCHMARK" = "join" ] ; then
         echo "#######################################################################"
         JOIN_RAW=${BENCHMARK_DATA_DIR}/raw
         mkdir -p $JOIN_RAW
-        wget http://homepages.cwi.nl/~boncz/job/imdb.tgz -O ${JOIN_RAW}/imdb.tgz
+        wget http://db03.cs.utah.edu:5555/imdb.tgz -O ${JOIN_RAW}/imdb.tgz
         cd $JOIN_RAW
         tar xvf imdb.tgz
         cd -
