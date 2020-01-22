@@ -119,6 +119,9 @@ done
 chmod -R +x scripts
 sudo apt-get install python-pip -y > /dev/null 2>&1
 pip install argparse hurry.filesize pyDOE pathlib2 numpy >> $LOGFILE 2>&1
+echo "#######################################################################"
+echo "GENERATING 1000 DATABASE CONFIGURATIONS "
+echo "#######################################################################"
 python scripts/config_generator.py -i configs/postgres_knobs.json -o dbconfigs -n 1000
 
 mkdir -p $BENCHMARK_DATA_DIR
@@ -165,6 +168,8 @@ if [ "$INSTALL" = 1 ] ; then
     if [ -d "/var/lib/postgresql/10/main" ]; then
         echo "BACK UP OLD DATA DIR"
         sudo mv /var/lib/postgresql/10/main /var/lib/postgresql/10/main.bak
+        sudo cp /etc/postgresql/10/main/postgresql.conf /etc/postgresql/10/main/postgresql.conf.bak
+        sudo cp configs/postgresql.conf /etc/postgresql/10/main/postgresql.conf
     fi
 
     sudo usermod -a -G `id -g -n` postgres
@@ -647,7 +652,11 @@ elif [ "$BENCHMARK" = "JOIN" ] || [ "$BENCHMARK" = "join" ] ; then
     echo "INSTALLING PREREQUISITES FOR JOIN ORDER BENCHMARK"
     echo "#######################################################################"
     sudo apt-get install git  -y  >> $LOGFILE 2>&1
+    rm -rf join-order-benchmark
     git clone https://github.com/gregrahn/join-order-benchmark >> $LOGFILE 2>&1
+    cd join-order-benchmark
+    rm schema.sql fkindexes.sql
+    cd -
 
 
     if [ "$IMPORT" = 1 ] ; then
@@ -670,12 +679,16 @@ elif [ "$BENCHMARK" = "JOIN" ] || [ "$BENCHMARK" = "join" ] ; then
         echo "#######################################################################"
         echo "LOADING INTO DATABASE"
         echo "#######################################################################"
+        mkdir -p $JOIN_RAW/tmp
         cd $JOIN_RAW
         for i in `ls *.csv`; do
             table=${i/.csv/}
+            sed 's/\\\\//g' $i > /tmp/$i
+            sed 's/\\"//g' /tmp/$i > $JOIN_RAW/tmp/$i
             echo "Loading $table..."
             sudo -u postgres psql join_db -q -c "TRUNCATE $table"
-            sudo -u postgres psql join_db -c "\\copy $table FROM '$JOIN_RAW/$i' CSV DELIMITER ','"
+            sudo -u postgres psql join_db -c "\\copy $table FROM '$JOIN_RAW/tmp/$i' with (format csv)"
+            rm $JOIN_RAW/tmp/$i
         done
         cd -
         sudo -u postgres psql join_db -f sqls/join_order_index.sql
@@ -726,7 +739,7 @@ elif [ "$BENCHMARK" = "JOIN" ] || [ "$BENCHMARK" = "join" ] ; then
         do
             cd join-order-benchmark &&  ls *.sql | xargs -I{} cp {} ${JOIN_QUERIES}/ >> $LOGFILE 2>&1 && cd -
             cd ${JOIN_QUERIES}
-            ls *.sql | xargs -I{} sudo -u postgres psql join_db -f {} >> $LOGFILE 2>&1
+            ls *.sql | xargs -I{} sudo -u postgres psql join_db -f {} > /dev/null 2>&1
             cd - > /dev/null 2>&1
 
             update_log join_db
