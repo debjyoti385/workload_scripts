@@ -16,7 +16,7 @@ FILENAME_MACHINE="demo.machine"
 
 LA_COUNTY_BBOX="-118.8927,33.6964,-117.5078,34.8309"
 NY_COUNTY_BBOX="-74.047225,40.679319,-73.906159,40.882463"
-SL_CIUNTY_BBOX="-112.260184,40.414864,-111.560498,40.921879"
+SL_COUNTY_BBOX="-112.260184,40.414864,-111.560498,40.921879"
 LA_BBOX="-118.6682,33.7036,118.1553,34.3373"
 NYC_BBOX="-74.25909,40.477399,-73.700181,40.916178"
 SLC_BBOX="-112.101607,40.699893,-111.739476,40.85297"
@@ -28,7 +28,7 @@ usage()
     echo -e ""
     echo -e "sudo ./install.sh OR sudo bash install.sh"
     echo -e "\t-h --help"
-    echo -e "\t-b --benchmark=$BENCHMARK # tpch/tpds/spatial/osm"
+    echo -e "\t-b --benchmark=$BENCHMARK # tpch/tpds/spatial/osm/join"
     echo -e "\t--pgdata=$PG_DATA_DIR # default"
     echo -e "\t--data=$BENCHMARK_DATA_DIR # default"
     echo -e "\t--sf=$SF # default 1 GB "
@@ -330,6 +330,7 @@ elif [ "$BENCHMARK" = "TPCDS" ] || [ "$BENCHMARK" = "tpcds" ] ; then
             sudo rm -f $i
         done
         cd -
+        sudo -u postgres psql tpcds_db -f sqls/tpcds_index.sql >> $LOGFILE 2>&1
     fi
 
     TPCDS_QUERIES=${BENCHMARK_DATA_DIR}/queries
@@ -636,6 +637,115 @@ elif [ "$BENCHMARK" = "OSM" ] || [ "$BENCHMARK" = "osm" ] ; then
         prepare_rerun
     done
 
+elif [ "$BENCHMARK" = "JOIN" ] || [ "$BENCHMARK" = "join" ] ; then
+
+###########################################################
+####   JOIN ORDER BENCHMARK
+###########################################################
+
+    echo "#######################################################################"
+    echo "INSTALLING PREREQUISITES FOR JOIN ORDER BENCHMARK"
+    echo "#######################################################################"
+    sudo apt-get install git  -y  >> $LOGFILE 2>&1
+    git clone https://github.com/gregrahn/join-order-benchmark >> $LOGFILE 2>&1
+
+
+    if [ "$IMPORT" = 1 ] ; then
+        echo "#######################################################################"
+        echo "CREATING DATABASE join_db"
+        echo "#######################################################################"
+        sudo -u postgres psql -f sqls/join_order_install.sql >> $LOGFILE 2>&1
+
+
+        echo "#######################################################################"
+        echo "PREPARING JOIN ORDER DATABASE AND DOWNLOADING DATA"
+        echo "#######################################################################"
+        JOIN_RAW=${BENCHMARK_DATA_DIR}/raw
+        mkdir -p $JOIN_RAW
+        wget http://homepages.cwi.nl/~boncz/job/imdb.tgz -O ${JOIN_RAW}/imdb.tgz
+        cd $JOIN_RAW
+        tar xvf imdb.tgz
+        cd -
+
+        echo "#######################################################################"
+        echo "LOADING INTO DATABASE"
+        echo "#######################################################################"
+        cd $JOIN_RAW
+        for i in `ls *.csv`; do
+            table=${i/.csv/}
+            echo "Loading $table..."
+            sudo -u postgres psql join_db -q -c "TRUNCATE $table"
+            sudo -u postgres psql join_db -c "\\copy $table FROM '$JOIN_RAW/$i' CSV DELIMITER ','"
+        done
+        cd -
+        sudo -u postgres psql join_db -f sqls/join_order_index.sql
+    fi
+
+    JOIN_QUERIES=${BENCHMARK_DATA_DIR}/queries
+    mkdir -p $JOIN_QUERIES
+
+    sudo apt-get install python-pip -y > /dev/null 2>&1
+    pip install argparse
+
+    RCOUNTER=0
+    while :
+    do
+        COUNTER=0
+        MEMORY=`free -m  | head -2 | tail -1 | awk '{print $2}'`
+        PROC=`nproc`
+
+        if [ -f /sys/hypervisor/uuid ] && [ `head -c 3 /sys/hypervisor/uuid` == ec2 ]; then
+            TIER=`curl http://169.254.169.254/latest/meta-data/instance-type`
+            INS_ID=`curl http://169.254.169.254/latest/meta-data/instance-id | tail -c4`
+        elif [ `curl  --silent "http://100.100.100.200/latest/meta-data/instance-id" --connect-timeout 3 2>&1 | wc -c` -gt 1  ]; then
+            TIER=`curl http://100.100.100.200/latest/meta-data/instance-type`
+            INS_ID=`curl http://100.100.100.200/latest/meta-data/instance-id`
+        else
+            TIER="custom"
+            INS_ID=`openssl rand -base64 3 | sed 's/[^a-zA-Z0-9]//g'`
+        fi
+
+        sudo chmod +x scripts/os_stats.sh
+
+        FILENAME="${TIER}_${PROC}_${MEMORY}_${SF}_JOIN_${INS_ID}.json"
+        FILENAME_DB="${TIER}_${PROC}_${MEMORY}_${SF}_JOIN_${INS_ID}.dbfeatures"
+        FILENAME_MACHINE="${TIER}_${PROC}_${MEMORY}_${SF}_JOIN_${INS_ID}.machine"
+
+        if [ $RCOUNTER -eq 0 ]; then
+            configure_for_execution
+        fi
+
+        echo "#######################################################################"
+        echo "RUNNING TPC-DS AND COLLECTING DATA AFTER EVERY BATCH RUN IN $FILENAME"
+        echo "PRESS [CTRL+C] to stop.."
+        echo "#######################################################################"
+
+        echo "" > /var/log/postgresql/postgresql-10-main.log
+
+        while :
+        do
+            cd join-order-benchmark &&  ls *.sql | xargs -I{} cp {} ${JOIN_QUERIES}/ >> $LOGFILE 2>&1 && cd -
+            cd ${JOIN_QUERIES}
+            ls *.sql | xargs -I{} sudo -u postgres psql join_db -f {} >> $LOGFILE 2>&1
+            cd - > /dev/null 2>&1
+
+            update_log join_db
+
+            echo -ne "BATCH: $COUNTER"\\r
+            if [ $COUNTER -gt $ITERATIONS ]; then
+                break
+            fi
+            let COUNTER=COUNTER+1
+            sleep 2
+        done
+
+        if [ $RCOUNTER -gt $RERUN ]; then
+            break
+        fi
+        let RCOUNTER=RCOUNTER+1
+        prepare_rerun
+    done
+
 else
-  echo "NO BENCHMARK SPECIFIED, use --benchmark=[tpch/tpcds/spatial/osm] as options"
+  echo "NO BENCHMARK SPECIFIED, use --benchmark=[tpch/tpcds/spatial/osm/join] as options"
 fi
