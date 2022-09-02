@@ -62,19 +62,19 @@ If you are using this tool, please cite the following paper.
 
 ```
 @article{10.14778/3503585.3503600,
-author = {Paul, Debjyoti and Cao, Jie and Li, Feifei and Srikumar, Vivek},
-title = {Database Workload Characterization with Query Plan Encoders},
-year = {2021},
-issue_date = {December 2021},
-publisher = {VLDB Endowment},
-volume = {15},
-number = {4},
-issn = {2150-8097},
-url = {https://doi.org/10.14778/3503585.3503600},
-doi = {10.14778/3503585.3503600},
-journal = {Proc. VLDB Endow.},
-month = {dec},
-pages = {923–935},
-numpages = {13}
+  author = {Paul, Debjyoti and Cao, Jie and Li, Feifei and Srikumar, Vivek},
+  title = {Database Workload Characterization with Query Plan Encoders},
+  year = {2021},
+  issue_date = {December 2021},
+  publisher = {VLDB Endowment},
+  volume = {15},
+  number = {4},
+  issn = {2150-8097},
+  url = {https://doi.org/10.14778/3503585.3503600},
+  doi = {10.14778/3503585.3503600},
+  journal = {Proc. VLDB Endow.},
+  month = {dec},
+  pages = {923–935},
+  numpages = {13}
 }
 ```
